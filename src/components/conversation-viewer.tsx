@@ -1,0 +1,325 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useConversations } from '@/hooks/use-conversations'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { ClienteDelivery } from '@/lib/supabase'
+import { Send, RotateCcw, Bot, User, Volume2, Clock } from 'lucide-react'
+
+interface ConversationViewerProps {
+  client: ClienteDelivery
+}
+
+export function ConversationViewer({ client }: ConversationViewerProps) {
+  const [message, setMessage] = useState('')
+  const { data: conversations, isLoading } = useConversations(client.id)
+  type LocalConv = {
+    id: string
+    cliente_id: string
+    mensagem_cliente: string
+    resposta_bot?: string
+    tipo_mensagem: 'texto' | 'audio'
+    agente_responsavel?: string
+    acao_especial?: string
+    timestamp: string
+  }
+  const [localConversations, setLocalConversations] = useState<LocalConv[]>([])
+  const [manualMode, setManualMode] = useState(false)
+
+  useEffect(() => {
+    // Reset local overlay when switching client or reloading conversations
+    setLocalConversations([])
+  }, [client.id])
+
+  // Usa sempre o proxy Next para evitar CORS
+  const resolveWebhookUrl = () => '/api/webhook'
+
+  // Fonte única de mensagens para renderização, mesclando banco e overlay local
+  const msgs: LocalConv[] = [
+    ...(((conversations ?? []) as LocalConv[])),
+    ...localConversations,
+  ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+
+  const handleSendMessage = async () => {
+    const webhookUrl = resolveWebhookUrl()
+    const evoServer = process.env.NEXT_PUBLIC_EVOLUTION_SERVER_URL
+    const evoInstance = process.env.NEXT_PUBLIC_EVOLUTION_INSTANCE
+    const evoApiKey = process.env.NEXT_PUBLIC_EVOLUTION_API_KEY
+    const dryRun = process.env.NEXT_PUBLIC_WHATSAPP_DRY_RUN === 'true'
+
+    if (!message.trim() || !webhookUrl) return
+
+    try {
+      const payload = manualMode
+        ? {
+            acao: 'responder-manual',
+            telefone: client.telefone,
+            telefoneCliente: client.telefone,
+            mensagem: message.trim(),
+            dryRun,
+            whatsapp: { evo: { server_url: evoServer, nomeInstancia: evoInstance, apikey: evoApiKey } },
+          }
+        : {
+            acao: 'enviar-mensagem',
+            telefone: client.telefone,
+            telefoneCliente: client.telefone,
+            mensagem: message.trim(),
+            dryRun,
+            whatsapp: { evo: { server_url: evoServer, nomeInstancia: evoInstance, apikey: evoApiKey } },
+          }
+
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error(`Falha no webhook: ${res.status}`)
+      const data = await res.json()
+      const now = new Date().toISOString()
+
+      const newItems: LocalConv[] = []
+      if (!manualMode) {
+        newItems.push({
+          id: `tmp-${Date.now()}-user`,
+          cliente_id: client.id,
+          mensagem_cliente: message.trim(),
+          tipo_mensagem: 'texto',
+          timestamp: now,
+        })
+      }
+      if (manualMode || data?.resposta_bot) {
+        newItems.push({
+          id: `tmp-${Date.now()}-bot`,
+          cliente_id: client.id,
+          mensagem_cliente: '',
+          resposta_bot: manualMode ? message.trim() : (data?.resposta_bot || ''),
+          tipo_mensagem: 'texto',
+          agente_responsavel: manualMode ? 'Operador' : (data?.agente_responsavel || 'Bot'),
+          acao_especial: manualMode ? 'mensagem_manual_dashboard' : data?.acao_especial,
+          timestamp: now,
+        })
+      }
+      setLocalConversations(prev => [...prev, ...newItems])
+      setMessage('')
+    } catch (err) {
+      console.error('Erro ao enviar:', err)
+    }
+  }
+
+  const handleReprocess = async () => {
+    const webhookUrl = resolveWebhookUrl()
+    const evoServer = process.env.NEXT_PUBLIC_EVOLUTION_SERVER_URL
+    const evoInstance = process.env.NEXT_PUBLIC_EVOLUTION_INSTANCE
+    const evoApiKey = process.env.NEXT_PUBLIC_EVOLUTION_API_KEY
+    const dryRun = process.env.NEXT_PUBLIC_WHATSAPP_DRY_RUN === 'true'
+
+    if (!webhookUrl) {
+      console.warn('Endpoint não configurado')
+      return
+    }
+
+    try {
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          acao: 'reprocessar',
+          telefoneCliente: client.telefone,
+          telefone: client.telefone,
+          nomeCliente: client.nome,
+          mensagem: message.trim() || '',
+          dryRun,
+          whatsapp: {
+            evo: {
+              server_url: evoServer,
+              nomeInstancia: evoInstance,
+              apikey: evoApiKey,
+            },
+          },
+        }),
+      })
+      if (!res.ok) throw new Error(`Falha no webhook: ${res.status}`)
+    } catch (err) {
+      console.error('Erro ao reprocessar:', err)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card className="h-full">
+        <CardContent className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+            <p className="text-sm text-gray-500">Carregando conversas...</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-3 border-b bg-green-50">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {/* conteúdo lado esquerdo permanece */}
+            <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-medium">
+              {client.nome.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <CardTitle className="text-lg text-green-800">{client.nome}</CardTitle>
+              <p className="text-sm text-green-600">{client.telefone || 'Sem telefone'}</p>
+
+              {/* Indicador de recência da conversa */}
+              {Array.isArray(conversations) && conversations.length > 0 && (
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-1 text-xs text-green-700">
+                    <Clock className="h-3 w-3" />
+                    <span>
+                      {new Date((conversations as any[])[(conversations as any[]).length - 1].timestamp).toLocaleTimeString('pt-BR', {
+                        hour: '2-digit', minute: '2-digit'
+                      })}
+                    </span>
+                  </div>
+                  <Badge variant="outline" className="text-xs">Recente</Badge>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={manualMode ? 'secondary' : 'outline'} className="text-xs">
+              {manualMode ? 'Manual ON' : 'Manual OFF'}
+            </Badge>
+            <Button
+              variant={manualMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setManualMode((v) => !v)}
+              className={manualMode ? 'bg-green-600 hover:bg-green-700' : ''}
+            >
+              {manualMode ? 'Desativar Manual' : 'Ativar Manual'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReprocess}
+              className="flex items-center gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reprocessar
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+
+      {/* Messages Area - WhatsApp Style */}
+      <CardContent className="flex-1 p-0 overflow-hidden">
+        <div className="h-full flex flex-col">
+          {/* Messages Container */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+            {msgs.length > 0 ? (
+              msgs.map((conv: LocalConv, index: number) => (
+                <div key={index} className="space-y-2">
+                  {/* Client Message: renderiza apenas se houver conteúdo */}
+                  {conv.mensagem_cliente && conv.mensagem_cliente.trim().length > 0 && (
+                    <div className="flex justify-start">
+                      <div className="max-w-[70%] bg-white rounded-lg px-3 py-2 shadow-sm border">
+                        <div className="flex items-center gap-2 mb-1">
+                          <User className="h-3 w-3 text-gray-500" />
+                          <span className="text-xs text-gray-500 font-medium">Cliente</span>
+                          {conv.tipo_mensagem === 'audio' && (
+                            <Volume2 className="h-3 w-3 text-blue-500" />
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-800">{conv.mensagem_cliente}</p>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs text-gray-400">
+                            {new Date(conv.timestamp).toLocaleTimeString('pt-BR', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bot/Operador Response */}
+                  {conv.resposta_bot && (
+                    <div className="flex justify-end">
+                      <div className="max-w-[70%] bg-green-500 text-white rounded-lg px-3 py-2 shadow-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Bot className="h-3 w-3" />
+                          <span className="text-xs font-medium opacity-90">
+                            {conv.agente_responsavel || 'Bot'}
+                          </span>
+                          {conv.agente_responsavel === 'Operador' && (
+                            <Badge variant="secondary" className="text-xs px-1 py-0 bg-green-600">
+                              Manual
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm">{conv.resposta_bot}</p>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-xs opacity-75">
+                            {new Date(conv.timestamp).toLocaleTimeString('pt-BR', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                          <div className="text-xs opacity-75">✓✓</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Special Actions Indicators */}
+                  {conv.acao_especial && (
+                    <div className="flex justify-center">
+                      <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium">
+                        {conv.acao_especial}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-gray-500">
+                  <Bot className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-sm">Nenhuma conversa encontrada</p>
+                  <p className="text-xs">As mensagens aparecerão aqui quando o cliente interagir</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Message Input - WhatsApp Style */}
+          <div className="border-t bg-white p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2">
+                <Input
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Digite uma mensagem..."
+                  className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                />
+              </div>
+              <Button
+                onClick={handleSendMessage}
+                disabled={!message.trim()}
+                size="sm"
+                className="rounded-full w-10 h-10 p-0 bg-green-500 hover:bg-green-600"
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
