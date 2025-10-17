@@ -1,0 +1,12 @@
+# Ignora tudo por padrão e só envia o backend
+*
+!server/
+!server/**
+
+# Não enviar caches e ambientes
+**/__pycache__/
+server/.venv/
+
+# Ignorar artefatos do frontend
+node_modules/
+.next/

@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase'
 import { useEffect } from 'react'
 
 interface TempMessage {
@@ -22,6 +22,7 @@ export function useConversations(clienteId: string | number) {
   const query = useQuery({
     queryKey: ['conversations', String(clienteId)],
     queryFn: async () => {
+      const supabase = getSupabase()
       const { data, error } = await supabase
         .from('temp_messages')
         .select('*')
@@ -51,6 +52,7 @@ export function useConversations(clienteId: string | number) {
 
   useEffect(() => {
     if (!clienteId) return
+    const supabase = getSupabase()
     const filtro = typeof cid === 'number' ? cid : clienteId
     const channel = supabase
       .channel('realtime_temp_messages')
@@ -71,6 +73,7 @@ export function useRecentConversations() {
   return useQuery({
     queryKey: ['conversations', 'recent'],
     queryFn: async () => {
+      const supabase = getSupabase()
       const { data, error } = await supabase
         .from('temp_messages')
         .select('*')

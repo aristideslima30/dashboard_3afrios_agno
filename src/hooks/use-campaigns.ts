@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { supabase, CampanhaMarketing } from '@/lib/supabase'
+import { getSupabase, CampanhaMarketing } from '@/lib/supabase'
 
 // Campanhas mockadas para testes
 const MOCK_CAMPAIGNS: CampanhaMarketing[] = [
@@ -42,6 +42,7 @@ export function useCampaigns() {
     queryKey: ['campaigns'],
     queryFn: async () => {
       try {
+        const supabase = getSupabase()
         const { data, error } = await supabase
           .from('campanhas_marketing')
           .select('*')
@@ -71,6 +72,7 @@ export function useActiveCampaigns() {
     queryKey: ['active-campaigns'],
     queryFn: async () => {
       try {
+        const supabase = getSupabase()
         const now = new Date().toISOString()
         const { data, error } = await supabase
           .from('campanhas_marketing')
@@ -119,8 +121,9 @@ export function useCreateCampaign() {
   
   return useMutation({
     mutationFn: async (newCampaign: Omit<CampanhaMarketing, 'id' | 'created_at'>) => {
-      const { data, error } = await supabase
-        .from('campanhas_marketing')
+      const supabase = getSupabase()
+      const table: any = supabase.from('campanhas_marketing')
+      const { data, error } = await table
         .insert([newCampaign])
         .select()
         .single()
