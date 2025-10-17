@@ -38,6 +38,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+!.env.local.example
 
 # vercel
 .vercel
@@ -45,3 +47,31 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Projeto na Vercel
+- Abra Vercel → New Project → Import `aristideslima30/dashboard_3afrios_agno`.
+- Framework: detecta automaticamente como `Next.js`.
+- Root Directory: use a raiz do repo (onde estão `package.json` e `src`).
+- Build & Output:
+  - Build: `npm run build` (já está em `package.json` com `--turbopack`).
+  - Install: Vercel executa `npm install` automaticamente.
+  - Output: padrão do Next (`.next`), não precisa configurar.
+
+**Variáveis de Ambiente (Vercel)**
+- Adicione em Project Settings → Environment Variables (Production/Preview/Development):
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `NEXT_PUBLIC_BACKEND_URL` (aponta para o backend na Railway quando estiver pronto)
+  - Opcionais (se for usar Evolution/WhatsApp no frontend):
+    - `NEXT_PUBLIC_EVOLUTION_SERVER_URL`
+    - `NEXT_PUBLIC_EVOLUTION_INSTANCE`
+    - `NEXT_PUBLIC_EVOLUTION_API_KEY`
+    - `NEXT_PUBLIC_WHATSAPP_DRY_RUN` (e.g., `true` para não enviar em produção até testar)
+
+**Smoke Test**
+- Após o primeiro deploy, acesse a URL pública do projeto.
+- Se sua rota `src/app/api/webhook` existir, teste `GET /api/webhook`; deve responder com JSON.
+- Se não existir a rota ainda, tudo bem: a UI vai subir. Depois criamos a rota de proxy para o backend.
+
+**Opcional: ignorar artefatos Python**
+- Já que você tem backend em `server/`, ignore `.venv` e `__pycache__` para manter o repo leve. Segue um ajuste sugerido no `.gitignore`:

@@ -4,7 +4,10 @@ import json
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from .config import ALLOWED_ORIGINS, PORT
+try:
+    from server.config import ALLOWED_ORIGINS, PORT
+except ImportError:
+    from .config import ALLOWED_ORIGINS, PORT
 from .agents.orchestrator import handle_message
 from .integrations.evolution import send_text
 from .integrations.supabase_store import persist_conversation

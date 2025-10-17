@@ -62,3 +62,7 @@ Exemplo disponível em `env.example`. No Vercel:
 - `GET https://seu-projeto.vercel.app/api/webhook` deve retornar `{ ok: true, route: 'webhook', mode: 'proxy' }`.
 - Leads e conversas devem carregar do Supabase conforme disponíveis.
 - Botão Manual ON/OFF visível no viewer; envio de mensagens depende de `NEXT_PUBLIC_BACKEND_URL` configurado.
+
+## Deploy e Ambiente
+
+Consulte `docs/DEPLOY.md` para instruções de Vercel (frontend) e Railway (backend). Variáveis reais devem ser configuradas nas plataformas, não no repositório.
