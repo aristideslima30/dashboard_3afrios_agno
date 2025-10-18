@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1
 FROM python:3.11-slim
-
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
