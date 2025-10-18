@@ -113,6 +113,7 @@ async def webhook(req: Request):
     return JSONResponse(_json_safe(result), media_type="application/json; charset=utf-8")
 
 
+# função: evolution_webhook(req: Request)
 @app.post("/evolution/webhook")
 async def evolution_webhook(req: Request):
     # Parsing robusto com fallback de encoding
@@ -140,9 +141,34 @@ async def evolution_webhook(req: Request):
                     media_type="application/json; charset=utf-8",
                 )
 
-        # Fallbacks de campos comuns
-        telefone = payload.get("number") or payload.get("from") or payload.get("telefone") or payload.get("phone") or ""
-        texto = payload.get("text") or payload.get("message") or payload.get("body") or payload.get("mensagem") or payload.get("msg") or ""
+        # Fallbacks de campos comuns (inclui formatos aninhados)
+        def _extract_phone(p: dict) -> str:
+            base = p.get("number") or p.get("from") or p.get("telefone") or p.get("phone") or ""
+            if not base:
+                key = p.get("key") or {}
+                remote = key.get("remoteJid") or p.get("chatId") or p.get("sender") or ""
+                if isinstance(remote, str) and "@" in remote:
+                    remote = remote.split("@", 1)[0]
+                base = remote or ""
+            import re
+            return re.sub(r"\D", "", str(base or ""))
+
+        def _extract_text(p: dict) -> str:
+            t = p.get("text") or p.get("message") or p.get("body") or p.get("mensagem") or p.get("msg")
+            if not t:
+                msg = p.get("message") or {}
+                if isinstance(msg, dict):
+                    t = (
+                        msg.get("conversation")
+                        or (msg.get("extendedTextMessage") or {}).get("text")
+                        or (msg.get("ephemeralMessage") or {}).get("message", {}).get("extendedTextMessage", {}).get("text")
+                        or (msg.get("listResponseMessage") or {}).get("title")
+                        or ""
+                    )
+            return str(t or "").strip()
+
+        telefone = _extract_phone(payload)
+        texto = _extract_text(payload)
 
         if isinstance(telefone, str) and "@" in telefone:
             telefone = telefone.split("@", 1)[0]
@@ -158,6 +184,8 @@ async def evolution_webhook(req: Request):
             dry_run = int(dr) != 0
         else:
             dry_run = False
+
+        logger.info(f"[Evolution] inbound: telefone={telefone} len(texto)={len(texto)} dryRun={dry_run}")
 
         internal = {
             "acao": "receber-mensagem",
@@ -186,7 +214,7 @@ async def evolution_webhook(req: Request):
         if isinstance(cc, str) and cc:
             result["contexto_conversa"] = _normalize_ptbr(cc)
 
-        # Envia resposta via Evolution e persiste no Supabase
+        # Envia resposta via Evolution (primeiro) e persiste no Supabase (depois)
         try:
             telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
             texto_out = result.get("resposta_bot")
