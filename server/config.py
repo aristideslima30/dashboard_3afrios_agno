@@ -39,7 +39,9 @@ SUPABASE_SERVICE_ROLE = os.getenv("SUPABASE_SERVICE_ROLE", "")
 GOOGLE_ENABLED = _get_bool_env("GOOGLE_ENABLED", True)
 GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
 GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
+GOOGLE_OAUTH_AUTH_URI = os.getenv("GOOGLE_OAUTH_AUTH_URI", "")
 GOOGLE_OAUTH_TOKEN_URI = os.getenv("GOOGLE_OAUTH_TOKEN_URI", "https://oauth2.googleapis.com/token")
+GOOGLE_OAUTH_REDIRECT_URI = os.getenv("GOOGLE_OAUTH_REDIRECT_URI", "")
 GOOGLE_SCOPES = [s.strip() for s in os.getenv("GOOGLE_SCOPES", "").split(",") if s.strip()]
 
 GOOGLE_DOC_ID = os.getenv("GOOGLE_DOC_ID", "")
