@@ -102,40 +102,6 @@ async def handle_message(payload: dict) -> dict:
             'info': 'Dashboard: resposta manual enviada',
         }
 
-    # Silencia bot em sessão manual ativa para mensagens recebidas do cliente
-    if acao == 'receber-mensagem' and sessao_manual:
-        return {
-            'ok': True,
-            'acao': acao,
-            'dryRun': dry_run,
-            'cliente': { 'telefone': telefone_normalizado or telefone_raw },
-            'mensagem_cliente': mensagem,
-            'resposta_bot': '',
-            'agente_responsavel': 'Cliente',
-            'routing': { 'intent': 'Manual', 'confidence': 1.0 },
-            'acao_especial': 'mensagem_em_sessao_manual',
-            'contexto_conversa': contexto_curto,
-            'memory_used': bool(historico),
-            'info': 'Sessão manual ativa: bot silenciado para mensagens recebidas',
-        }
-
-    # Se for enviar-mensagem mas há sessão manual, trata como manual (Operador)
-    if acao == 'enviar-mensagem' and sessao_manual:
-        return {
-            'ok': True,
-            'acao': 'responder-manual',
-            'dryRun': dry_run,
-            'cliente': { 'telefone': telefone_normalizado or telefone_raw },
-            'mensagem_cliente': '',
-            'resposta_bot': mensagem,
-            'agente_responsavel': 'Operador',
-            'routing': { 'intent': 'Manual', 'confidence': 1.0 },
-            'acao_especial': 'mensagem_manual_dashboard',
-            'contexto_conversa': contexto_curto,
-            'memory_used': bool(historico),
-            'info': 'Sessão manual ativa: mensagem enviada pelo Operador',
-        }
-
     override = (payload.get('target_agent') or '').strip()
     routing = route_to_agent(mensagem)
     agente_responsavel = override if override in INTENT_KEYWORDS else routing['intent']
