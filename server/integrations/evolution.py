@@ -51,7 +51,9 @@ async def send_text(telefone: str, texto: str) -> dict:
     variants = []
 
     url_no_instance = url_base
-    url_with_instance = f"{url_base.rstrip('/')}/{EVOLUTION_INSTANCE_ID}"
+    # Normaliza instanceId (remove espaços, barras e chaves)
+    inst = (EVOLUTION_INSTANCE_ID or "").strip().strip("/").strip("{}")
+    url_with_instance = f"{url_base.rstrip('/')}/{inst}"
     headers_apikey = {"Content-Type": "application/json; charset=utf-8", "apikey": EVOLUTION_API_KEY}
     headers_bearer = {"Content-Type": "application/json; charset=utf-8", "Authorization": f"Bearer {EVOLUTION_API_KEY}"}
 
@@ -64,10 +66,10 @@ async def send_text(telefone: str, texto: str) -> dict:
     variants.append(("apikey_path_textMessage_no_instance", url_no_instance, headers_apikey, {"number": telefone, "textMessage": {"text": safe_text}}))
 
     # apikey + instância no corpo
-    variants.append(("apikey_body_instance_text", url_no_instance, headers_apikey, {"number": telefone, "text": safe_text, "instance": EVOLUTION_INSTANCE_ID}))
+    variants.append(("apikey_body_instance_text", url_no_instance, headers_apikey, {"number": telefone, "text": safe_text, "instance": inst}))
 
     # bearer + instanceId no corpo
-    variants.append(("bearer_body_instanceId_text", url_no_instance, headers_bearer, {"number": telefone, "text": safe_text, "instanceId": EVOLUTION_INSTANCE_ID}))
+    variants.append(("bearer_body_instanceId_text", url_no_instance, headers_bearer, {"number": telefone, "text": safe_text, "instanceId": inst}))
 
     # bearer + instância no path
     variants.append(("bearer_path_instance_text", url_with_instance, headers_bearer, {"number": telefone, "text": safe_text}))
@@ -75,10 +77,10 @@ async def send_text(telefone: str, texto: str) -> dict:
     # variações com api/v1
     if "/api/" not in EVOLUTION_SEND_TEXT_PATH:
         url_v1_no_instance = f"{EVOLUTION_BASE_URL.rstrip('/')}/api/v1/{EVOLUTION_SEND_TEXT_PATH.lstrip('/')}"
-        url_v1_with_instance = f"{url_v1_no_instance.rstrip('/')}/{EVOLUTION_INSTANCE_ID}"
+        url_v1_with_instance = f"{url_v1_no_instance.rstrip('/')}/{inst}"
         variants.append(("apikey_v1_path_text", url_v1_with_instance, headers_apikey, {"number": telefone, "text": safe_text}))
         variants.append(("apikey_v1_path_text_no_instance", url_v1_no_instance, headers_apikey, {"number": telefone, "text": safe_text}))
-        variants.append(("bearer_v1_body_instanceId_text", url_v1_no_instance, headers_bearer, {"number": telefone, "text": safe_text, "instanceId": EVOLUTION_INSTANCE_ID}))
+        variants.append(("bearer_v1_body_instanceId_text", url_v1_no_instance, headers_bearer, {"number": telefone, "text": safe_text, "instanceId": inst}))
 
     async with httpx.AsyncClient(timeout=10) as client:
         attempts = []
