@@ -40,6 +40,11 @@ def _normalize_ptbr(s: str) -> str:
     s = re.sub(r"\n{3,}", "\n\n", s)
     return _sanitize_text(s)
 
+def _normalize_instance_id(s: str) -> str:
+    import re
+    # mantém apenas letras, números, '_' e '-' (remove ;, {}, [], /, \, aspas, etc.)
+    return re.sub(r"[^A-Za-z0-9_-]", "", (s or ""))
+
 # função: send_text(telefone: str, texto: str) -> dict
 import httpx
 
@@ -50,24 +55,19 @@ async def send_text(telefone: str, texto: str) -> dict:
         return {"sent": False, "reason": "missing_config"}
 
     inst_raw = EVOLUTION_INSTANCE_ID
-    inst = (EVOLUTION_INSTANCE_ID or "").strip().strip("/").strip("{}")
-    url_base = f"{EVOLUTION_BASE_URL.rstrip('/')}/{EVOLUTION_SEND_TEXT_PATH.lstrip('/')}"
-    debug_info = {
-        "inst_raw": inst_raw,
-        "inst_clean": inst,
-        "EVOLUTION_BASE_URL": EVOLUTION_BASE_URL,
-        "EVOLUTION_SEND_TEXT_PATH": EVOLUTION_SEND_TEXT_PATH,
-        "url_base": url_base,
-    }
+    inst = _normalize_instance_id(EVOLUTION_INSTANCE_ID)
 
+    url_base = f"{EVOLUTION_BASE_URL.rstrip('/')}/{EVOLUTION_SEND_TEXT_PATH.lstrip('/')}"
     safe_text = _normalize_ptbr(_fix_mojibake(_sanitize_text(texto)))
 
     variants = []
+
     url_no_instance = url_base
     url_with_instance = f"{url_base.rstrip('/')}/{inst}"
     headers_apikey = {"Content-Type": "application/json; charset=utf-8", "apikey": EVOLUTION_API_KEY}
     headers_bearer = {"Content-Type": "application/json; charset=utf-8", "Authorization": f"Bearer {EVOLUTION_API_KEY}"}
 
+    # apikey + instância no path
     variants.append(("apikey_path_text", url_with_instance, headers_apikey, {"number": telefone, "text": safe_text}))
     variants.append(("apikey_path_textMessage", url_with_instance, headers_apikey, {"number": telefone, "textMessage": {"text": safe_text}}))
     variants.append(("apikey_path_text_no_instance", url_no_instance, headers_apikey, {"number": telefone, "text": safe_text}))
