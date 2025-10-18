@@ -12,6 +12,7 @@ except ImportError:
 from .agents.orchestrator import handle_message
 from .integrations.evolution import send_text
 from .integrations.supabase_store import persist_conversation
+from .integrations.webhook_parser import parse_incoming_events
 
 # após a inicialização do app
 app = FastAPI(title="3A Frios Backend", version="0.1.0")
@@ -317,12 +318,125 @@ async def evolution_webhook(request: Request):
             media_type="application/json; charset=utf-8",
         )
 
+@app.post("/whatsapp/webhook")
+async def whatsapp_webhook(req: Request):
+    try:
+        try:
+            payload = await req.json()
+        except Exception:
+            raw = await req.body()
+            try:
+                payload = json.loads(raw.decode("utf-8", errors="ignore"))
+            except Exception:
+                payload = {}
+
+        events = parse_incoming_events(payload or {})
+        if not events:
+            return JSONResponse({"ok": False, "error": "no_events_extracted"})
+
+        # caches em memória para dedupe
+        try:
+            _DEDUP_EVENT_CACHE  # type: ignore
+        except NameError:
+            _DEDUP_EVENT_CACHE = {}  # type: ignore
+        try:
+            _DEDUP_MSG_CACHE  # type: ignore
+        except NameError:
+            _DEDUP_MSG_CACHE = {}  # type: ignore
+
+        now = time.time()
+        ttl_seconds = 180
+        # prune expirados
+        for k, exp in list(_DEDUP_EVENT_CACHE.items()):  # type: ignore
+            if exp < now:
+                _DEDUP_EVENT_CACHE.pop(k, None)  # type: ignore
+        for k, exp in list(_DEDUP_MSG_CACHE.items()):  # type: ignore
+            if exp < now:
+                _DEDUP_MSG_CACHE.pop(k, None)  # type: ignore
+
+        processed = []
+        ignored = []
+        for ev in events:
+            from_me = bool(ev.get("from_me"))
+            telefone = (ev.get("telefone") or "").strip()
+            texto = (ev.get("texto") or "").strip()
+            event_id = ev.get("event_id") or f"evt-{int(now * 1000)}"
+
+            if from_me:
+                ignored.append({"ignored": "from_me", "event_id": event_id})
+                continue
+
+            # dedupe por event_id e assinatura
+            if event_id in _DEDUP_EVENT_CACHE:  # type: ignore
+                ignored.append({"ignored": "duplicate_event", "event_id": event_id})
+                continue
+            _DEDUP_EVENT_CACHE[event_id] = now + ttl_seconds  # type: ignore
+
+            msg_sig = f"{telefone}|{texto.lower()}"
+            if telefone and texto and msg_sig in _DEDUP_MSG_CACHE:  # type: ignore
+                ignored.append({"ignored": "duplicate_message", "event_id": event_id, "telefone": telefone})
+                continue
+            if telefone and texto:
+                _DEDUP_MSG_CACHE[msg_sig] = now + ttl_seconds  # type: ignore
+
+            logger.info(f"[WhatsApp] inbound: telefone={telefone} len(texto)={len(texto)} event_id={event_id}")
+
+            internal = {
+                "acao": "receber-mensagem",
+                "mensagem": texto,
+                "telefoneCliente": telefone,
+                "dryRun": False,
+            }
+
+            try:
+                result = await handle_message(internal)
+            except Exception as e:
+                logger.error("Falha no orquestrador (/whatsapp/webhook)", exc_info=True)
+                processed.append({"ok": False, "error": "orchestrator_failed", "detail": str(e), "event_id": event_id})
+                continue
+
+            if not isinstance(result, dict):
+                processed.append({"ok": False, "error": "orchestrator_invalid_response", "event_id": event_id})
+                continue
+
+            # normaliza texto de saída e anexa event_id
+            rb = result.get("resposta_bot")
+            cc = result.get("contexto_conversa")
+            if isinstance(rb, str) and rb:
+                result["resposta_bot"] = _normalize_ptbr(rb)
+            if isinstance(cc, str) and cc:
+                result["contexto_conversa"] = _normalize_ptbr(cc)
+            result["event_id"] = event_id
+
+            # envio Evolution e persistência
+            try:
+                telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
+                texto_out = result.get("resposta_bot")
+                if telefone_out and texto_out:
+                    evo = await send_text(telefone_out, texto_out)
+                    result["enviado_via_evolution"] = bool(evo.get("sent"))
+                    result["evolution_status"] = evo
+                try:
+                    supa = await persist_conversation(result)
+                    result["persistencia_supabase"] = supa
+                except Exception:
+                    pass
+            except Exception:
+                pass
+
+            processed.append(_json_safe(result))
+
+        return JSONResponse({"ok": True, "processed": processed, "ignored": ignored}, media_type="application/json; charset=utf-8")
+    except Exception as e:
+        logger.error("Falha ao processar /whatsapp/webhook", exc_info=True)
+        return JSONResponse(_json_safe({"ok": False, "error": "invalid_payload", "detail": str(e)}), media_type="application/json; charset=utf-8")
+
 @app.get("/")
 async def root():
     return {
         "ok": True,
         "service": "3A Frios Backend",
-        "endpoints": ["/webhook", "/docs"],
+        "endpoints": ["/webhook", "/evolution/webhook", "/whatsapp/webhook", "/docs"],
     }
 
 
