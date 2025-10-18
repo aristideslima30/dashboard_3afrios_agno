@@ -1,11 +1,12 @@
 # imports de módulo
 import logging
 import json
+import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 try:
-    from server.config import ALLOWED_ORIGINS, PORT
+    from server.config import ALLOWED_ORIGINS as ALLOWED_ORIGINS, PORT
 except ImportError:
     from .config import ALLOWED_ORIGINS, PORT
 from .agents.orchestrator import handle_message
@@ -115,36 +116,41 @@ async def webhook(req: Request):
 
 # função: evolution_webhook(req: Request)
 @app.post("/evolution/webhook")
-async def evolution_webhook(req: Request):
+async def evolution_webhook(request: Request):
     # Parsing robusto com fallback de encoding
     try:
         try:
-            payload = await req.json()
+            payload = await request.json()
         except Exception:
-            raw = await req.body()
-            payload = None
-            last_txt = None
-            for enc in ("utf-8", "latin-1", "cp1252"):
-                try:
-                    txt = raw.decode(enc, errors="ignore")
-                    txt = txt.lstrip("\ufeff").strip()
-                    last_txt = txt
-                    payload = json.loads(txt)
-                    break
-                except Exception:
-                    pass
-            if payload is None:
-                excerpt = (last_txt or raw.decode("utf-8", errors="ignore"))[:200]
-                logger.error(f"Falha ao decodificar JSON em /evolution/webhook. len={len(raw)} excerpt={excerpt!r}")
-                return JSONResponse(
-                    _json_safe({"ok": False, "error": "invalid_payload", "detail": "unable_to_decode", "received_length": len(raw), "excerpt": excerpt}),
-                    media_type="application/json; charset=utf-8",
+            body = await request.body()
+            try:
+                payload = json.loads(body.decode("utf-8", errors="ignore"))
+            except Exception:
+                payload = {}
+
+        # NEW: detectar eventos fromMe (mensagens do próprio bot) e ignorar
+        def _is_from_me(p: dict) -> bool:
+            try:
+                k = p.get("key") or {}
+                return bool(
+                    p.get("fromMe") or
+                    k.get("fromMe") or
+                    (p.get("message") or {}).get("fromMe")
                 )
+            except Exception:
+                return False
+
+        if _is_from_me(payload):
+            return JSONResponse({"ok": True, "ignored": "from_me"})
 
         # Usa o primeiro item quando payload agrupa mensagens em lista
         p = payload
         if isinstance(payload, dict) and isinstance(payload.get("messages"), list) and payload["messages"]:
             p = (payload["messages"][0] or {})
+
+        # NEW: ignorar fromMe também no item da lista (nested)
+        if _is_from_me(p):
+            return JSONResponse({"ok": True, "ignored": "from_me_nested"})
 
         # Fallbacks de campos comuns (inclui formatos aninhados)
         def _extract_phone(p: dict) -> str:
@@ -190,7 +196,16 @@ async def evolution_webhook(req: Request):
         else:
             dry_run = False
 
-        logger.info(f"[Evolution] inbound: telefone={telefone} len(texto)={len(texto)} dryRun={dry_run}")
+        # NEW: event_id para debug/dedupe básico
+        event_id = (
+            ((p.get("key") or {}).get("id")) or
+            p.get("id") or
+            ((payload.get("key") or {}).get("id")) or
+            payload.get("id") or
+            f"evt-{int(time.time() * 1000)}"
+        )
+
+        logger.info(f"[Evolution] inbound: telefone={telefone} len(texto)={len(texto)} dryRun={dry_run} event_id={event_id}")
 
         internal = {
             "acao": "receber-mensagem",
@@ -210,6 +225,9 @@ async def evolution_webhook(req: Request):
         if not isinstance(result, dict):
             logger.error("Resposta inválida do orquestrador (Evolution): tipo inesperado")
             return JSONResponse(_json_safe({"ok": False, "error": "orchestrator_invalid_response"}), media_type="application/json; charset=utf-8")
+
+        # NEW: repassa event_id para rastreio
+        result["event_id"] = event_id
 
         # Normaliza saída
         rb = result.get("resposta_bot")
