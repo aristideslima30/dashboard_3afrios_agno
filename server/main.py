@@ -113,7 +113,6 @@ async def webhook(req: Request):
     return JSONResponse(_json_safe(result), media_type="application/json; charset=utf-8")
 
 
-# função: evolution_webhook(req: Request)
 @app.post("/evolution/webhook")
 async def evolution_webhook(req: Request):
     # Parsing robusto com fallback de encoding
@@ -141,15 +140,30 @@ async def evolution_webhook(req: Request):
                     media_type="application/json; charset=utf-8",
                 )
 
-        # Campos comuns na Evolution
-        telefone = payload.get("number") or payload.get("from") or ""
-        texto = payload.get("text") or payload.get("message") or payload.get("body") or ""
+        # Fallbacks de campos comuns
+        telefone = payload.get("number") or payload.get("from") or payload.get("telefone") or payload.get("phone") or ""
+        texto = payload.get("text") or payload.get("message") or payload.get("body") or payload.get("mensagem") or payload.get("msg") or ""
+
+        if isinstance(telefone, str) and "@" in telefone:
+            telefone = telefone.split("@", 1)[0]
+        import re
+        telefone = re.sub(r"\D", "", telefone or "")
+
+        dr = payload.get("dryRun")
+        if isinstance(dr, bool):
+            dry_run = dr
+        elif isinstance(dr, str):
+            dry_run = dr.strip().lower() in ("1", "true", "yes", "y", "on", "t")
+        elif isinstance(dr, (int, float)):
+            dry_run = int(dr) != 0
+        else:
+            dry_run = False
 
         internal = {
             "acao": "receber-mensagem",
             "mensagem": texto,
             "telefoneCliente": telefone,
-            "dryRun": bool(payload.get("dryRun")),
+            "dryRun": dry_run,
         }
 
         # Protege contra erro do orquestrador
