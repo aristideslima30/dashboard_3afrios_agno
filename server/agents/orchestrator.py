@@ -69,6 +69,7 @@ async def handle_message(payload: dict) -> dict:
         or (payload.get('cliente') or {}).get('telefone')
         or ''
     )
+    cliente_id_raw = payload.get('clienteId')  # novo: id do cliente vindo do Dashboard
     dry_run = bool(payload.get('dryRun'))
 
     telefone_normalizado = ''.join(ch for ch in str(telefone_raw) if ch.isdigit())
@@ -91,7 +92,7 @@ async def handle_message(payload: dict) -> dict:
             'ok': True,
             'acao': acao,
             'dryRun': dry_run,
-            'cliente': { 'telefone': telefone_normalizado or telefone_raw },
+            'cliente': { 'telefone': telefone_normalizado or telefone_raw, 'id': cliente_id_raw },
             'mensagem_cliente': '',
             'resposta_bot': mensagem,
             'agente_responsavel': 'Operador',
@@ -148,6 +149,7 @@ async def handle_message(payload: dict) -> dict:
         'dryRun': dry_run,
         'cliente': {
             'telefone': telefone_normalizado or telefone_raw,
+            'id': cliente_id_raw,
         },
         'mensagem_cliente': mensagem,
         'resposta_bot': svc['resposta'],

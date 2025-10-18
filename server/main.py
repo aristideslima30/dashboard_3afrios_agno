@@ -39,15 +39,14 @@ logger.info(f"Backend iniciado na porta {PORT}")
 
 
 # função: webhook (endpoint /webhook)
-# função: webhook(req: Request)
 @app.post("/webhook")
-async def webhook(req: Request):
+async def webhook(request: Request):
     # Parse robusto do JSON com fallback de encoding
     try:
         try:
-            payload = await req.json()
+            payload = await request.json()
         except Exception:
-            raw = await req.body()
+            raw = await request.body()
             payload = None
             last_txt = None
             for enc in ("utf-8", "latin-1", "cp1252"):
@@ -89,7 +88,7 @@ async def webhook(req: Request):
     logger.info(f"Resposta orquestrador: agente={result.get('agente_responsavel')} acao_especial={result.get('acao_especial')} dryRun={result.get('dryRun')}")
     try:
         telefone = (result.get("cliente") or {}).get("telefone")
-        texto = result.get("resposta_bot")
+        texto = result.get("resposta_bot") or result.get("mensagem_cliente")
         if telefone and texto and not result.get("dryRun"):
             evo = await send_text(telefone, texto)
             result["enviado_via_evolution"] = bool(evo.get("sent"))

@@ -106,7 +106,12 @@ async def persist_conversation(result: dict) -> dict:
         return {"ok": False, "reason": "supabase_not_configured"}
 
     telefone = ((result.get("cliente") or {}).get("telefone") or "").strip()
-    cliente_id = await _ensure_cliente_id(telefone) if telefone else ""
+    cliente_id_input = ((result.get("cliente") or {}).get("id"))
+    cliente_id = (
+        str(cliente_id_input).strip()
+        if (cliente_id_input is not None and str(cliente_id_input).strip() != "")
+        else (await _ensure_cliente_id(telefone) if telefone else "")
+    )
     if not cliente_id:
         return {"ok": False, "reason": "cliente_not_found_or_created"}
 
@@ -114,7 +119,7 @@ async def persist_conversation(result: dict) -> dict:
     # Normaliza cliente_id para inteiro quando possível, evitando erros de tipo
     cid_val = None
     try:
-        cid_val = int(cliente_id)
+        cid_val = int(str(cliente_id))
     except Exception:
         cid_val = cliente_id  # mantém como string se não for dígito
 
