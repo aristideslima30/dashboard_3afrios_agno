@@ -205,6 +205,42 @@ async def evolution_webhook(request: Request):
             f"evt-{int(time.time() * 1000)}"
         )
 
+        # NEW: dedupe simples em memória com TTL (event_id + msg)
+        try:
+            _DEDUP_EVENT_CACHE  # type: ignore
+        except NameError:
+            _DEDUP_EVENT_CACHE = {}  # type: ignore
+
+        try:
+            _DEDUP_MSG_CACHE  # type: ignore
+        except NameError:
+            _DEDUP_MSG_CACHE = {}  # type: ignore
+
+        now = time.time()
+        ttl_seconds = 180
+
+        # prune expirados (event_id)
+        for k, exp in list(_DEDUP_EVENT_CACHE.items()):  # type: ignore
+            if exp < now:
+                _DEDUP_EVENT_CACHE.pop(k, None)  # type: ignore
+
+        # prune expirados (msg assinatura)
+        for k, exp in list(_DEDUP_MSG_CACHE.items()):  # type: ignore
+            if exp < now:
+                _DEDUP_MSG_CACHE.pop(k, None)  # type: ignore
+
+        # dedupe por event_id
+        if event_id in _DEDUP_EVENT_CACHE:  # type: ignore
+            return JSONResponse({"ok": True, "ignored": "duplicate_event", "event_id": event_id})
+        _DEDUP_EVENT_CACHE[event_id] = now + ttl_seconds  # type: ignore
+
+        # dedupe por assinatura de mensagem do cliente (telefone+texto)
+        msg_sig = f"{telefone}|{(texto or '').strip().lower()}"
+        if (telefone and texto) and msg_sig in _DEDUP_MSG_CACHE:  # type: ignore
+            return JSONResponse({"ok": True, "ignored": "duplicate_message", "event_id": event_id, "telefone": telefone})
+        if telefone and texto:
+            _DEDUP_MSG_CACHE[msg_sig] = now + ttl_seconds  # type: ignore
+
         logger.info(f"[Evolution] inbound: telefone={telefone} len(texto)={len(texto)} dryRun={dry_run} event_id={event_id}")
 
         internal = {
@@ -241,10 +277,30 @@ async def evolution_webhook(request: Request):
         try:
             telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
             texto_out = result.get("resposta_bot")
+
+            # NEW: dedupe de saída por assinatura (telefone+resposta_bot)
+            try:
+                _SENT_CACHE  # type: ignore
+            except NameError:
+                _SENT_CACHE = {}  # type: ignore
+
+            # prune expirados (saídas)
+            for k, exp in list(_SENT_CACHE.items()):  # type: ignore
+                if exp < time.time():
+                    _SENT_CACHE.pop(k, None)  # type: ignore
+
+            send_sig = f"{telefone_out}|{(texto_out or '').strip().lower()}"
             if telefone_out and texto_out and not result.get("dryRun"):
-                evo = await send_text(telefone_out, texto_out)
-                result["enviado_via_evolution"] = bool(evo.get("sent"))
-                result["evolution_status"] = evo
+                if send_sig in _SENT_CACHE:  # type: ignore
+                    result["enviado_via_evolution"] = False
+                    result["evolution_status"] = {"skipped": "duplicate_outgoing", "send_sig": send_sig}
+                else:
+                    evo = await send_text(telefone_out, texto_out)
+                    result["enviado_via_evolution"] = bool(evo.get("sent"))
+                    result["evolution_status"] = evo
+                    # marca assinatura enviada com TTL
+                    _SENT_CACHE[send_sig] = time.time() + ttl_seconds  # type: ignore
+
             try:
                 supa = await persist_conversation(result)
                 result["persistencia_supabase"] = supa

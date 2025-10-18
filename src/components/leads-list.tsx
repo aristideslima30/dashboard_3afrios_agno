@@ -137,7 +137,7 @@ export function LeadsList({ onSelectClient, selectedClientId, showOnlyWithConver
       </CardHeader>
       
       <CardContent className="p-0">
-        <div className="max-h-[600px] overflow-y-auto">
+        <div className="max-h-[50vh] md:max-h-[600px] overflow-y-auto">
           {filteredLeads && filteredLeads.length > 0 ? (
             <div className="space-y-1">
               {filteredLeads.map((lead) => {
@@ -204,7 +204,7 @@ export function LeadsList({ onSelectClient, selectedClientId, showOnlyWithConver
               })}
             </div>
           ) : (
-            <div className="p-8 text-center text-gray-500">
+            <div className="text-center py-12 text-gray-500">
               <MessageCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="text-sm">
                 {showOnlyWithConversations 

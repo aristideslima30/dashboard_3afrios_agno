@@ -133,9 +133,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-main flex">
+    <div className="min-h-screen bg-gradient-main flex flex-col md:flex-row">
       {/* Sidebar Moderna */}
-      <div className="w-72 sidebar-gradient flex flex-col shadow-xl">
+      <div className="w-full md:w-64 lg:w-72 sidebar-gradient flex flex-col shadow-xl">
         {/* Header do Sidebar */}
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-3">
@@ -217,7 +217,7 @@ export default function Dashboard() {
       {/* Conteúdo Principal */}
       <div className="flex-1 flex flex-col">
         {/* Header Moderno */}
-        <header className="bg-white/80 backdrop-blur-sm border-b border-neutral-200/50 px-8 py-6 shadow-sm">
+        <header className="bg-white/80 backdrop-blur-sm border-b border-neutral-200/50 px-4 sm:px-6 lg:px-8 py-4 sm:py-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-neutral-900 mb-1">Atendimento Automatizado</h2>
@@ -235,13 +235,13 @@ export default function Dashboard() {
         </header>
 
         {/* Conteúdo das Abas */}
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-4 sm:p-6 lg:p-8">
           {/* Aba Conversas */}
           {activeTab === "conversations" && (
             <div className="h-full fade-in">
-              <div className="flex h-full gap-6">
+              <div className="flex flex-col md:flex-row h-full gap-6">
                 {/* Left Panel - Leads List for Conversations */}
-                <div className="w-1/3">
+                <div className="w-full md:w-1/3">
                   <div className="card-elegant h-full">
                     <CardHeader className="pb-4">
                       <CardTitle className="flex items-center gap-3 text-lg">
@@ -262,7 +262,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Right Panel - Conversation Viewer */}
-                <div className="flex-1">
+                <div className="w-full md:flex-1">
                   {selectedClient ? (
                     <ConversationViewer client={selectedClient} />
                   ) : (
@@ -286,9 +286,9 @@ export default function Dashboard() {
           {/* Aba Leads */}
           {activeTab === "leads" && (
             <div className="h-full fade-in">
-              <div className="flex h-full gap-6">
+              <div className="flex flex-col md:flex-row h-full gap-6">
                 {/* Left Panel - Leads List */}
-                <div className="w-1/3">
+                <div className="w-full md:w-1/3">
                   <div className="card-elegant h-full">
                     <CardHeader className="pb-4">
                       <CardTitle className="flex items-center gap-3 text-lg">
@@ -308,7 +308,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Right Panel - Lead Details and Actions */}
-                <div className="flex-1">
+                <div className="w-full md:flex-1">
                   {selectedClient ? (
                     <div className="space-y-6 h-full">
                       {/* Lead Info Card */}

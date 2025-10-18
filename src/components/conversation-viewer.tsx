@@ -76,8 +76,20 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error(`Falha no webhook: ${res.status}`)
-      const data = await res.json()
+      const ct = res.headers.get('content-type') || ''
+      if (!res.ok) {
+        try {
+          const raw = ct.includes('application/json') ? await res.json() : await res.text()
+          const detail = typeof raw === 'string' ? raw : raw?.detail || raw?.error || JSON.stringify(raw)
+          console.error('Webhook falhou:', { status: res.status, detail })
+          alert(`Falha no webhook: ${res.status}${detail ? ` – ${String(detail).slice(0, 200)}` : ''}`)
+        } catch (e) {
+          console.error('Falha ao ler corpo do erro do webhook', e)
+          alert(`Falha no webhook: ${res.status}`)
+        }
+        return
+      }
+      const data = ct.includes('application/json') ? await res.json() : await res.text()
       const now = new Date().toISOString()
 
       const newItems: LocalConv[] = []
@@ -141,7 +153,19 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
           },
         }),
       })
-      if (!res.ok) throw new Error(`Falha no webhook: ${res.status}`)
+      const ct = res.headers.get('content-type') || ''
+      if (!res.ok) {
+        try {
+          const raw = ct.includes('application/json') ? await res.json() : await res.text()
+          const detail = typeof raw === 'string' ? raw : raw?.detail || raw?.error || JSON.stringify(raw)
+          console.error('Falha no webhook ao reprocessar:', { status: res.status, detail })
+          alert(`Falha no webhook: ${res.status}${detail ? ` – ${String(detail).slice(0, 200)}` : ''}`)
+        } catch (e) {
+          console.error('Falha ao ler corpo do erro do webhook (reprocessar)', e)
+          alert(`Falha no webhook: ${res.status}`)
+        }
+        return
+      }
     } catch (err) {
       console.error('Erro ao reprocessar:', err)
     }
@@ -222,10 +246,9 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
             {msgs.length > 0 ? (
               msgs.map((conv: LocalConv, index: number) => (
                 <div key={index} className="space-y-2">
-                  {/* Client Message: renderiza apenas se houver conteúdo */}
                   {conv.mensagem_cliente && conv.mensagem_cliente.trim().length > 0 && (
                     <div className="flex justify-start">
-                      <div className="max-w-[70%] bg-white rounded-lg px-3 py-2 shadow-sm border">
+                      <div className="max-w-[85%] sm:max-w-[70%] bg-white rounded-lg px-3 py-2 shadow-sm border">
                         <div className="flex items-center gap-2 mb-1">
                           <User className="h-3 w-3 text-gray-500" />
                           <span className="text-xs text-gray-500 font-medium">Cliente</span>
@@ -249,7 +272,7 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
                   {/* Bot/Operador Response */}
                   {conv.resposta_bot && (
                     <div className="flex justify-end">
-                      <div className="max-w-[70%] bg-green-500 text-white rounded-lg px-3 py-2 shadow-sm">
+                      <div className="max-w-[85%] sm:max-w-[70%] bg-green-500 text-white rounded-lg px-3 py-2 shadow-sm">
                         <div className="flex items-center gap-2 mb-1">
                           <Bot className="h-3 w-3" />
                           <span className="text-xs font-medium opacity-90">
