@@ -141,6 +141,11 @@ async def evolution_webhook(req: Request):
                     media_type="application/json; charset=utf-8",
                 )
 
+        # Usa o primeiro item quando payload agrupa mensagens em lista
+        p = payload
+        if isinstance(payload, dict) and isinstance(payload.get("messages"), list) and payload["messages"]:
+            p = (payload["messages"][0] or {})
+
         # Fallbacks de campos comuns (inclui formatos aninhados)
         def _extract_phone(p: dict) -> str:
             base = p.get("number") or p.get("from") or p.get("telefone") or p.get("phone") or ""
@@ -167,8 +172,8 @@ async def evolution_webhook(req: Request):
                     )
             return str(t or "").strip()
 
-        telefone = _extract_phone(payload)
-        texto = _extract_text(payload)
+        telefone = _extract_phone(p)
+        texto = _extract_text(p)
 
         if isinstance(telefone, str) and "@" in telefone:
             telefone = telefone.split("@", 1)[0]
