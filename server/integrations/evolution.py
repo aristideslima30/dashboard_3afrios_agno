@@ -42,7 +42,6 @@ def _normalize_ptbr(s: str) -> str:
 
 def _normalize_instance_id(s: str) -> str:
     import re
-    # mantém apenas letras, números, '_' e '-' (remove ;, {}, [], /, \, aspas, etc.)
     return re.sub(r"[^A-Za-z0-9_-]", "", (s or ""))
 
 # função: send_text(telefone: str, texto: str) -> dict
@@ -54,15 +53,14 @@ async def send_text(telefone: str, texto: str) -> dict:
     if not (EVOLUTION_BASE_URL and EVOLUTION_API_KEY and EVOLUTION_INSTANCE_ID and EVOLUTION_SEND_TEXT_PATH):
         return {"sent": False, "reason": "missing_config"}
 
-    inst_raw = EVOLUTION_INSTANCE_ID
-    inst = _normalize_instance_id(EVOLUTION_INSTANCE_ID)
-
     url_base = f"{EVOLUTION_BASE_URL.rstrip('/')}/{EVOLUTION_SEND_TEXT_PATH.lstrip('/')}"
     safe_text = _normalize_ptbr(_fix_mojibake(_sanitize_text(texto)))
 
     variants = []
 
     url_no_instance = url_base
+    # Normaliza instanceId com remoção de caracteres fora [A-Za-z0-9_-]
+    inst = _normalize_instance_id(EVOLUTION_INSTANCE_ID or "")
     url_with_instance = f"{url_base.rstrip('/')}/{inst}"
     headers_apikey = {"Content-Type": "application/json; charset=utf-8", "apikey": EVOLUTION_API_KEY}
     headers_bearer = {"Content-Type": "application/json; charset=utf-8", "Authorization": f"Bearer {EVOLUTION_API_KEY}"}
@@ -70,11 +68,21 @@ async def send_text(telefone: str, texto: str) -> dict:
     # apikey + instância no path
     variants.append(("apikey_path_text", url_with_instance, headers_apikey, {"number": telefone, "text": safe_text}))
     variants.append(("apikey_path_textMessage", url_with_instance, headers_apikey, {"number": telefone, "textMessage": {"text": safe_text}}))
+
+    # apikey + sem instância no path (ex.: /me21)
     variants.append(("apikey_path_text_no_instance", url_no_instance, headers_apikey, {"number": telefone, "text": safe_text}))
     variants.append(("apikey_path_textMessage_no_instance", url_no_instance, headers_apikey, {"number": telefone, "textMessage": {"text": safe_text}}))
+
+    # apikey + instância no corpo
     variants.append(("apikey_body_instance_text", url_no_instance, headers_apikey, {"number": telefone, "text": safe_text, "instance": inst}))
+
+    # bearer + instanceId no corpo
     variants.append(("bearer_body_instanceId_text", url_no_instance, headers_bearer, {"number": telefone, "text": safe_text, "instanceId": inst}))
+
+    # bearer + instância no path
     variants.append(("bearer_path_instance_text", url_with_instance, headers_bearer, {"number": telefone, "text": safe_text}))
+
+    # variações com api/v1
     if "/api/" not in EVOLUTION_SEND_TEXT_PATH:
         url_v1_no_instance = f"{EVOLUTION_BASE_URL.rstrip('/')}/api/v1/{EVOLUTION_SEND_TEXT_PATH.lstrip('/')}"
         url_v1_with_instance = f"{url_v1_no_instance.rstrip('/')}/{inst}"
@@ -90,24 +98,8 @@ async def send_text(telefone: str, texto: str) -> dict:
                 ct = resp.headers.get("content-type", "")
                 data = resp.json() if ct.startswith("application/json") else {"body": resp.text}
                 if 200 <= resp.status_code < 300:
-                    return {
-                        "sent": True,
-                        "status_code": resp.status_code,
-                        "data": data,
-                        "variant": variant,
-                        "url": url,
-                        "inst_raw": inst_raw,
-                        "inst_clean": inst,
-                        "config": debug_info,
-                    }
+                    return {"sent": True, "status_code": resp.status_code, "data": data, "variant": variant, "url": url}
                 attempts.append({"variant": variant, "status_code": resp.status_code, "data": data, "url": url})
             except Exception as e:
                 attempts.append({"variant": variant, "error": str(e), "url": url})
-        return {
-            "sent": False,
-            "reason": "all_variants_failed",
-            "attempts": attempts,
-            "inst_raw": inst_raw,
-            "inst_clean": inst,
-            "config": debug_info,
-        }
+        return {"sent": False, "reason": "all_variants_failed", "attempts": attempts}
