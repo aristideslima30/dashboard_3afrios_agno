@@ -22,16 +22,18 @@ async def _find_cliente_by_telefone(telefone: str) -> dict | None:
     if not (SUPABASE_URL and SUPABASE_SERVICE_ROLE):
         return None
     async with await _client() as c:
-        # Tenta diferentes combinações de endpoint e coluna
-        endpoints = ["/clientes-delivery", "/clientes_delivery"]
-        columns = ["telefone_cliente", "telefoneCliente", "telefone"]
-        for ep in endpoints:
-            for col in columns:
-                resp = await c.get(ep, params={"select": "*", col: f"eq.{telefone}", "limit": "1"})
-                if 200 <= resp.status_code < 300:
-                    data = resp.json() or []
-                    if data:
-                        return data[0]
+        # Consulta CANÔNICA: tabela clientes_delivery, coluna telefone
+        resp = await c.get("/clientes_delivery", params={"select": "*", "telefone": f"eq.{telefone}", "limit": "1"})
+        if 200 <= resp.status_code < 300:
+            data = resp.json() or []
+            if data:
+                return data[0]
+        # Fallback tolerante: ilike para casos com formatação divergente
+        resp2 = await c.get("/clientes_delivery", params={"select": "*", "telefone": f"ilike.*{telefone}*", "limit": "1"})
+        if 200 <= resp2.status_code < 300:
+            data2 = resp2.json() or []
+            if data2:
+                return data2[0]
         return None
 
 
@@ -39,56 +41,20 @@ async def _create_cliente_stub(telefone: str) -> dict | None:
     if not (SUPABASE_URL and SUPABASE_SERVICE_ROLE):
         return None
     now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-
-    # Tenta inserir com snake_case usando underscore (telefone_cliente)
-    payload_underscore = {
-        "telefone_cliente": telefone,
-        "created_at": now,
-        "updated_at": now,
-    }
-
-    # Tenta inserir com camelCase
-    payload_camel = {
-        "nomeCliente": "Cliente",
-        "telefoneCliente": telefone,
-        "leadScore": 0,
-        "leadStatus": "novo",
-        "dataUltimaInteracao": now,
+    payload_snake = {
+        "nome": "Cliente",
+        "telefone": telefone,
+        "lead_score": 0,
+        "lead_status": "novo",
         "created_at": now,
         "updated_at": now,
     }
     async with await _client() as c:
-        # Primeiro tenta endpoint com hífen e coluna snake_case (underscore)
-        resp0 = await c.post("/clientes-delivery", json=[payload_underscore])
-        if 200 <= resp0.status_code < 300:
-            data0 = resp0.json() or []
-            return data0[0] if data0 else None
-
-        # Depois tenta endpoint com hífen e colunas camelCase
-        resp = await c.post("/clientes-delivery", json=[payload_camel])
+        # INSERÇÃO CANÔNICA: clientes_delivery com coluna telefone
+        resp = await c.post("/clientes_delivery", json=[payload_snake])
         if 200 <= resp.status_code < 300:
             data = resp.json() or []
             return data[0] if data else None
-
-        # Tenta endpoint snake_case com coluna underscore
-        resp1 = await c.post("/clientes_delivery", json=[payload_underscore])
-        if 200 <= resp1.status_code < 300:
-            data1 = resp1.json() or []
-            return data1[0] if data1 else None
-
-        # Fallback para endpoint snake_case e colunas snake_case
-        payload_snake = {
-            "nome": "Cliente",
-            "telefone": telefone,
-            "lead_score": 0,
-            "lead_status": "novo",
-            "created_at": now,
-            "updated_at": now,
-        }
-        resp2 = await c.post("/clientes_delivery", json=[payload_snake])
-        if 200 <= resp2.status_code < 300:
-            data2 = resp2.json() or []
-            return data2[0] if data2 else None
         return None
 
 
