@@ -281,19 +281,23 @@ async def evolution_webhook(request: Request):
             telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
             texto_out = result.get("resposta_bot")
 
-            # NEW: dedupe de saída por assinatura (telefone+resposta_bot)
+            # Envio Evolution com dedupe de saída seguro
+            telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
+            texto_out = result.get("resposta_bot")
+
+            # Inicializa/prune cache de saídas
             try:
                 _SENT_CACHE  # type: ignore
             except NameError:
                 _SENT_CACHE = {}  # type: ignore
 
-            # prune expirados (saídas)
+            now2 = time.time()
             for k, exp in list(_SENT_CACHE.items()):  # type: ignore
-                if exp < time.time():
+                if exp < now2:
                     _SENT_CACHE.pop(k, None)  # type: ignore
 
             send_sig = f"{telefone_out}|{(texto_out or '').strip().lower()}"
-            if telefone_out and texto_out and not result.get("dryRun"):
+            if telefone_out and texto_out:
                 if send_sig in _SENT_CACHE:  # type: ignore
                     result["enviado_via_evolution"] = False
                     result["evolution_status"] = {"skipped": "duplicate_outgoing", "send_sig": send_sig}
@@ -301,7 +305,6 @@ async def evolution_webhook(request: Request):
                     evo = await send_text(telefone_out, texto_out)
                     result["enviado_via_evolution"] = bool(evo.get("sent"))
                     result["evolution_status"] = evo
-                    # marca assinatura enviada com TTL
                     _SENT_CACHE[send_sig] = time.time() + ttl_seconds  # type: ignore
 
             try:
@@ -415,20 +418,27 @@ async def whatsapp_webhook(req: Request):
                 result["contexto_conversa"] = _normalize_ptbr(cc)
             result["event_id"] = event_id
 
-            # envio Evolution e persistência
+            # envio Evolution com dedupe de saída seguro
+            telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
+            texto_out = result.get("resposta_bot")
+
+            # Inicializa/prune cache de saídas (global)
+            global _SENT_CACHE
             try:
-                telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
-                texto_out = result.get("resposta_bot")
-                if telefone_out and texto_out:
-                    evo = await send_text(telefone_out, texto_out)
-                    result["enviado_via_evolution"] = bool(evo.get("sent"))
-                    result["evolution_status"] = evo
-                    _SENT_CACHE[send_sig] = time.time() + ttl_seconds  # type: ignore
+                _SENT_CACHE  # type: ignore
             except Exception:
-                pass
-                telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
-                texto_out = result.get("resposta_bot")
-                if telefone_out and texto_out:
+                _SENT_CACHE = {}  # type: ignore
+
+            for k, exp in list(_SENT_CACHE.items()):  # type: ignore
+                if exp < time.time():
+                    _SENT_CACHE.pop(k, None)  # type: ignore
+
+            send_sig = f"{telefone_out}|{(texto_out or '').strip().lower()}"
+            if telefone_out and texto_out:
+                if send_sig in _SENT_CACHE:  # type: ignore
+                    result["enviado_via_evolution"] = False
+                    result["evolution_status"] = {"skipped": "duplicate_outgoing", "send_sig": send_sig}
+                else:
                     evo = await send_text(telefone_out, texto_out)
                     result["enviado_via_evolution"] = bool(evo.get("sent"))
                     result["evolution_status"] = evo
