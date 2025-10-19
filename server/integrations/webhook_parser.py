@@ -147,7 +147,8 @@ def parse_incoming_events(payload: dict) -> _t.List[dict]:
     # Evolution
     ev = _extract_evolution(payload)
     for e in ev:
-        if e.get("telefone") or e.get("from_me"):
+        txt = str(e.get("texto") or "").strip()
+        if e.get("from_me") or (e.get("telefone") and txt):
             events.append(e)
     if events:
         return events
@@ -155,7 +156,8 @@ def parse_incoming_events(payload: dict) -> _t.List[dict]:
     # Cloud API
     cl = _extract_cloud_api(payload)
     for e in cl:
-        if e.get("telefone") or e.get("from_me"):
+        txt = str(e.get("texto") or "").strip()
+        if e.get("from_me") or (e.get("telefone") and txt):
             events.append(e)
     if events:
         return events
@@ -163,12 +165,13 @@ def parse_incoming_events(payload: dict) -> _t.List[dict]:
     # WAHA
     wh = _extract_waha(payload)
     for e in wh:
-        if e.get("telefone") or e.get("from_me"):
+        txt = str(e.get("texto") or "").strip()
+        if e.get("from_me") or (e.get("telefone") and txt):
             events.append(e)
     if events:
         return events
 
-    # Heurística genérica: tenta campos comuns
+    # Heurística genérica
     base_phone = _digits(
         payload.get("from") or payload.get("number") or payload.get("sender") or (payload.get("chatId") or "").split("@", 1)[0]
     )
@@ -179,7 +182,7 @@ def parse_incoming_events(payload: dict) -> _t.List[dict]:
         or payload.get("mensagem")
         or ""
     )
-    if base_phone or texto:
+    if base_phone and str(texto or "").strip():
         return [{"from_me": False, "telefone": base_phone, "texto": str(texto or "").strip(), "event_id": payload.get("id") or ""}]
 
     return []

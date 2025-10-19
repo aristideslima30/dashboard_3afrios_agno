@@ -241,7 +241,10 @@ async def evolution_webhook(request: Request):
         if telefone and texto:
             _DEDUP_MSG_CACHE[msg_sig] = now + ttl_seconds  # type: ignore
 
-        logger.info(f"[Evolution] inbound: telefone={telefone} len(texto)={len(texto)} dryRun={dry_run} event_id={event_id}")
+        # IGNORA eventos sem texto (acks/status) para não acionar o orquestrador
+        if not texto:
+            logger.info(f"[Evolution] inbound ignorado: empty_text telefone={telefone} event_id={event_id}")
+            return JSONResponse({"ok": True, "ignored": "empty_text", "event_id": event_id})
 
         internal = {
             "acao": "receber-mensagem",
@@ -365,6 +368,11 @@ async def whatsapp_webhook(req: Request):
                 ignored.append({"ignored": "from_me", "event_id": event_id})
                 continue
 
+            # IGNORA eventos sem texto (acks/status)
+            if not texto:
+                ignored.append({"ignored": "empty_text", "event_id": event_id, "telefone": telefone})
+                continue
+
             # dedupe por event_id e assinatura
             if event_id in _DEDUP_EVENT_CACHE:  # type: ignore
                 ignored.append({"ignored": "duplicate_event", "event_id": event_id})
@@ -415,13 +423,25 @@ async def whatsapp_webhook(req: Request):
                     evo = await send_text(telefone_out, texto_out)
                     result["enviado_via_evolution"] = bool(evo.get("sent"))
                     result["evolution_status"] = evo
-                try:
-                    supa = await persist_conversation(result)
-                    result["persistencia_supabase"] = supa
-                except Exception:
-                    pass
+                    _SENT_CACHE[send_sig] = time.time() + ttl_seconds  # type: ignore
             except Exception:
                 pass
+                telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
+                texto_out = result.get("resposta_bot")
+                if telefone_out and texto_out:
+                    evo = await send_text(telefone_out, texto_out)
+                    result["enviado_via_evolution"] = bool(evo.get("sent"))
+                    result["evolution_status"] = evo
+                    _SENT_CACHE[send_sig] = time.time() + ttl_seconds  # type: ignore
+
+            try:
+                supa = await persist_conversation(result)
+                result["persistencia_supabase"] = supa
+            except Exception:
+                pass
+            except Exception:
+                pass
+            pass
 
             processed.append(_json_safe(result))
 
