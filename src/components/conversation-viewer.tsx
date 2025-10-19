@@ -52,6 +52,38 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
 
     if (!message.trim() || !webhookUrl) return
 
+    const now = new Date().toISOString()
+    // Adiciona imediatamente a mensagem manual à lista local
+    if (manualMode) {
+      setLocalConversations(prev => [
+        ...prev,
+        {
+          id: `tmp-${Date.now()}-bot`,
+          cliente_id: client.id,
+          mensagem_cliente: '',
+          resposta_bot: message.trim(),
+          tipo_mensagem: 'texto',
+          agente_responsavel: 'Operador',
+          acao_especial: 'mensagem_manual_dashboard',
+          timestamp: now,
+        }
+      ])
+      setMessage('')
+    } else {
+      setLocalConversations(prev => [
+        ...prev,
+        {
+          id: `tmp-${Date.now()}-user`,
+          cliente_id: client.id,
+          mensagem_cliente: message.trim(),
+          tipo_mensagem: 'texto',
+          timestamp: now,
+        }
+      ])
+      setMessage('')
+    }
+
+    // Envia para o backend normalmente
     try {
       const payload = manualMode
         ? {
@@ -91,33 +123,9 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
         }
         return
       }
-      const data = ct.includes('application/json') ? await res.json() : await res.text()
-      const now = new Date().toISOString()
-
-      const newItems: LocalConv[] = []
-      if (!manualMode) {
-        newItems.push({
-          id: `tmp-${Date.now()}-user`,
-          cliente_id: client.id,
-          mensagem_cliente: message.trim(),
-          tipo_mensagem: 'texto',
-          timestamp: now,
-        })
-      }
-      if (manualMode || data?.resposta_bot) {
-        newItems.push({
-          id: `tmp-${Date.now()}-bot`,
-          cliente_id: client.id,
-          mensagem_cliente: '',
-          resposta_bot: manualMode ? message.trim() : (data?.resposta_bot || ''),
-          tipo_mensagem: 'texto',
-          agente_responsavel: manualMode ? 'Operador' : (data?.agente_responsavel || 'Bot'),
-          acao_especial: manualMode ? 'mensagem_manual_dashboard' : data?.acao_especial,
-          timestamp: now,
-        })
-      }
-      setLocalConversations(prev => [...prev, ...newItems])
-      setMessage('')
+      // Quando o backend responder, aguarde o realtime atualizar a lista principal
+      // Opcional: se quiser garantir, pode forçar um refetch das conversas
+      // (mas normalmente o realtime já faz isso)
     } catch (err) {
       console.error('Erro ao enviar:', err)
     }
@@ -189,14 +197,13 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
   return (
     <Card className="h-full flex flex-col">
       <CardHeader className="pb-3 border-b bg-green-50">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            {/* conteúdo lado esquerdo permanece */}
             <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-medium">
               {client.nome.charAt(0).toUpperCase()}
             </div>
             <div>
-              <CardTitle className="text-lg text-green-800">{client.nome}</CardTitle>
+              <CardTitle className="text-lg text-green-800 line-clamp-1">{client.nome}</CardTitle>
               <p className="text-sm text-green-600">{client.telefone || 'Sem telefone'}</p>
 
               {/* Indicador de recência da conversa */}
@@ -215,7 +222,7 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <Badge variant={manualMode ? 'secondary' : 'outline'} className="text-xs">
               {manualMode ? 'Manual ON' : 'Manual OFF'}
             </Badge>
@@ -223,18 +230,19 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
               variant={manualMode ? 'default' : 'outline'}
               size="sm"
               onClick={() => setManualMode((v) => !v)}
-              className={manualMode ? 'bg-green-600 hover:bg-green-700' : ''}
+              className={`${manualMode ? 'bg-green-600 hover:bg-green-700' : ''} flex-1 sm:flex-none`}
             >
-              {manualMode ? 'Desativar Manual' : 'Ativar Manual'}
+              <span className="hidden sm:inline">{manualMode ? 'Desativar Manual' : 'Ativar Manual'}</span>
+              <span className="sm:hidden">{manualMode ? 'Desativar' : 'Ativar'}</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={handleReprocess}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 flex-1 sm:flex-none"
             >
               <RotateCcw className="h-4 w-4" />
-              Reprocessar
+              <span className="hidden sm:inline">Reprocessar</span>
             </Button>
           </div>
         </div>
@@ -250,15 +258,15 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
                 <div key={index} className="space-y-2">
                   {conv.mensagem_cliente && conv.mensagem_cliente.trim().length > 0 && (
                     <div className="flex justify-start">
-                      <div className="max-w-[85%] sm:max-w-[70%] bg-white rounded-lg px-3 py-2 shadow-sm border">
-                        <div className="flex items-center gap-2 mb-1">
-                          <User className="h-3 w-3 text-gray-500" />
+                      <div className="max-w-[95%] xs:max-w-[85%] sm:max-w-[75%] md:max-w-[70%] bg-white rounded-lg px-3 py-2 shadow-sm border break-words">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <User className="h-3 w-3 text-gray-500 shrink-0" />
                           <span className="text-xs text-gray-500 font-medium">Cliente</span>
                           {conv.tipo_mensagem === 'audio' && (
-                            <Volume2 className="h-3 w-3 text-blue-500" />
+                            <Volume2 className="h-3 w-3 text-blue-500 shrink-0" />
                           )}
                         </div>
-                        <p className="text-sm text-gray-800">{conv.mensagem_cliente}</p>
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{conv.mensagem_cliente}</p>
                         <div className="flex items-center justify-between mt-1">
                           <span className="text-xs text-gray-400">
                             {new Date(conv.timestamp).toLocaleTimeString('pt-BR', {
@@ -274,19 +282,19 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
                   {/* Bot/Operador Response */}
                   {conv.resposta_bot && (
                     <div className="flex justify-end">
-                      <div className="max-w-[85%] sm:max-w-[70%] bg-green-500 text-white rounded-lg px-3 py-2 shadow-sm">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Bot className="h-3 w-3" />
+                      <div className="max-w-[95%] xs:max-w-[85%] sm:max-w-[75%] md:max-w-[70%] bg-green-500 text-white rounded-lg px-3 py-2 shadow-sm break-words">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <Bot className="h-3 w-3 shrink-0" />
                           <span className="text-xs font-medium opacity-90">
                             {conv.agente_responsavel || 'Bot'}
                           </span>
                           {conv.agente_responsavel === 'Operador' && (
-                            <Badge variant="secondary" className="text-xs px-1 py-0 bg-green-600">
+                            <Badge variant="secondary" className="text-xs px-1 py-0 bg-green-600 shrink-0">
                               Manual
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm">{conv.resposta_bot}</p>
+                        <p className="text-sm whitespace-pre-wrap">{conv.resposta_bot}</p>
                         <div className="flex items-center justify-between mt-1">
                           <span className="text-xs opacity-75">
                             {new Date(conv.timestamp).toLocaleTimeString('pt-BR', {
@@ -294,7 +302,7 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
                               minute: '2-digit'
                             })}
                           </span>
-                          <div className="text-xs opacity-75">✓✓</div>
+                          <div className="text-xs opacity-75 ml-2">✓✓</div>
                         </div>
                       </div>
                     </div>
@@ -322,24 +330,24 @@ export function ConversationViewer({ client }: ConversationViewerProps) {
           </div>
 
           {/* Message Input - WhatsApp Style */}
-          <div className="border-t bg-white p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-4 py-2">
+          <div className="border-t bg-white p-2 sm:p-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex-1 flex items-center gap-2 bg-gray-100 rounded-full px-3 sm:px-4 py-2">
                 <Input
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Digite uma mensagem..."
-                  className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-                  onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                  className="border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-sm sm:text-base"
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                 />
               </div>
               <Button
                 onClick={handleSendMessage}
                 disabled={!message.trim()}
                 size="sm"
-                className="rounded-full w-10 h-10 p-0 bg-green-500 hover:bg-green-600"
+                className="rounded-full w-8 h-8 sm:w-10 sm:h-10 p-0 bg-green-500 hover:bg-green-600 flex-shrink-0"
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
           </div>

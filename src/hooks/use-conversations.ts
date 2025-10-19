@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getSupabase } from '@/lib/supabase'
 import { useEffect } from 'react'
 
@@ -46,24 +46,59 @@ export function useConversations(clienteId: string | number) {
       }))
     },
     enabled: !!clienteId,
-    refetchInterval: 5000,
-    staleTime: 4000,
+    refetchInterval: 2000,  // Reduzido para 2 segundos
+    staleTime: 1000,       // Reduzido para 1 segundo
   })
+
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     if (!clienteId) return
     const supabase = getSupabase()
     const filtro = typeof cid === 'number' ? cid : clienteId
-    const channel = supabase
-      .channel('realtime_temp_messages')
+    
+    // Canal para mensagens específicas do cliente
+    const clientChannel = supabase
+      .channel(`realtime_messages_${filtro}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'temp_messages', filter: `cliente_id=eq.${filtro}` },
-        () => { query.refetch() }
+        { 
+          event: '*', // Captura INSERT, UPDATE e DELETE
+          schema: 'public', 
+          table: 'temp_messages', 
+          filter: `cliente_id=eq.${filtro}` 
+        },
+        (payload) => {
+          // Atualiza imediatamente
+          query.refetch()
+          
+          // Invalida o cache de conversas recentes também
+          queryClient.invalidateQueries({ queryKey: ['conversations', 'recent'] })
+        }
       )
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [clienteId, query])
+
+    // Canal para todas as mensagens (útil para atualizações gerais)
+    const globalChannel = supabase
+      .channel('realtime_messages_global')
+      .on(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'temp_messages'
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['conversations', 'recent'] })
+        }
+      )
+      .subscribe()
+
+    return () => { 
+      supabase.removeChannel(clientChannel)
+      supabase.removeChannel(globalChannel)
+    }
+  }, [clienteId, query, queryClient])
 
   return query
 }
