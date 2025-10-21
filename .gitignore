@@ -75,3 +75,4 @@ next-env.d.ts
 
 **Opcional: ignorar artefatos Python**
 - Já que você tem backend em `server/`, ignore `.venv` e `__pycache__` para manter o repo leve. Segue um ajuste sugerido no `.gitignore`:
+.env
