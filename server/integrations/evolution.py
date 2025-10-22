@@ -123,6 +123,13 @@ async def send_text(telefone: str, texto: str) -> dict:
     variants.append(("apikey_phone_field_message", url_no_instance, headers_apikey, {"phone": phone, "message": safe_text, "instance": inst}))
     variants.append(("apikey_to_field_message", url_no_instance, headers_apikey, {"to": phone, "message": safe_text, "instance": inst}))
     variants.append(("apikey_chatId_field_message", url_no_instance, headers_apikey, {"chatId": f"{phone}@c.us", "message": safe_text, "instance": inst}))
+    # NOVAS: alternativas COM instância no path
+    variants.append(("apikey_phone_field_with_instance", url_with_instance, headers_apikey, {"phone": phone, "text": safe_text}))
+    variants.append(("apikey_to_field_with_instance", url_with_instance, headers_apikey, {"to": phone, "text": safe_text}))
+    variants.append(("apikey_chatId_field_with_instance", url_with_instance, headers_apikey, {"chatId": f"{phone}@c.us", "text": safe_text}))
+    variants.append(("apikey_phone_field_message_with_instance", url_with_instance, headers_apikey, {"phone": phone, "message": safe_text}))
+    variants.append(("apikey_to_field_message_with_instance", url_with_instance, headers_apikey, {"to": phone, "message": safe_text}))
+    variants.append(("apikey_chatId_field_message_with_instance", url_with_instance, headers_apikey, {"chatId": f"{phone}@c.us", "message": safe_text}))
 
     # variações com api/v1
     if "/api/" not in EVOLUTION_SEND_TEXT_PATH:
