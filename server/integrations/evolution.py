@@ -157,7 +157,9 @@ async def send_text(telefone: str, texto: str) -> dict:
                 attempts.append({"variant": variant, "error": str(e), "url": url})
         reason = _classify_attempts(attempts)
         try:
-            logging.getLogger("3afrios.backend").warning(f"Evolution send failed: reason={reason} attempts={len(attempts)}")
+            lg = logging.getLogger("3afrios.backend")
+            sample = [{"variant": a.get("variant"), "status": a.get("status_code"), "url": a.get("url")} for a in attempts[:3]]
+            lg.warning(f"Evolution send failed: reason={reason} attempts={len(attempts)} sample={json.dumps(sample, ensure_ascii=False)}")
         except Exception:
             pass
         return {"sent": False, "reason": "all_variants_failed", "classification": reason, "attempts": attempts}
