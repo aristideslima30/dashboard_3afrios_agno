@@ -142,6 +142,7 @@ async def handle_message(payload: dict) -> dict:
     # Passa contexto para o agente
     try:
         logger.debug(f"[Orchestrator] Chamando agente {agente_responsavel}")
+        logger.debug(f"[Orchestrator] Contexto da conversa: {json.dumps(contexto_curto, ensure_ascii=False)}")
         svc = agent_mod.respond(mensagem, context=contexto_google)
         logger.debug(f"[Orchestrator] Resposta do agente: len={len(svc.get('resposta', ''))} acao={svc.get('acao_especial')}")
     except Exception as e:

@@ -1,6 +1,7 @@
 import os
 import time
 import httpx
+import logging
 from ..config import SUPABASE_URL, SUPABASE_SERVICE_ROLE
 import typing as _t
 from .evolution import _sanitize_text, _fix_mojibake
@@ -188,7 +189,11 @@ async def persist_conversation(result: dict) -> dict:
 
 async def fetch_recent_messages_by_telefone(telefone: str, limit: int = 10) -> _t.List[dict]:
     """Lê histórico recente de mensagens por telefone, com múltiplos fallbacks de schema."""
+    logger = logging.getLogger("3afrios.backend")
+    logger.debug(f"[Supabase] Buscando histórico para telefone {telefone}")
+    
     if not (SUPABASE_URL and SUPABASE_SERVICE_ROLE) or not (telefone or "").strip():
+        logger.warning("[Supabase] Configuração incompleta ou telefone inválido")
         return []
 
     # Tenta obter cliente_id para uma consulta mais estável
@@ -213,9 +218,12 @@ async def fetch_recent_messages_by_telefone(telefone: str, limit: int = 10) -> _
                 if 200 <= r.status_code < 300:
                     data = r.json() or []
                     if data:
+                        logger.info(f"[Supabase] Encontradas {len(data)} mensagens para cliente_id={cliente_id}")
                         return data
-            except Exception:
-                pass
+                else:
+                    logger.warning(f"[Supabase] Erro ao buscar mensagens: status={r.status_code}")
+            except Exception as e:
+                logger.error(f"[Supabase] Erro ao buscar mensagens: {str(e)}", exc_info=True)
         # 2) Fallback por telefone em diferentes colunas
         columns = ["cliente_telefone", "telefone_cliente", "telefoneCliente", "telefone"]
         for col in columns:
