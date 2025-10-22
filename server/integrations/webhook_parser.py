@@ -1,4 +1,8 @@
 import typing as _t
+import json
+import logging
+
+logger = logging.getLogger("3afrios.backend")
 
 # Parser unificado de payloads de WhatsApp (Cloud API, WAHA, Evolution)
 # Retorna uma lista de eventos normalizados: { telefone: str, texto: str, event_id: str, from_me: bool }
@@ -166,38 +170,53 @@ def parse_incoming_events(payload: dict) -> _t.List[dict]:
     Tenta extrair eventos de diferentes provedores.
     Ordem: Evolution -> Cloud API -> WAHA. Se nenhum casar, tenta heurísticas genéricas.
     """
+    logger.debug("[WebhookParser] Iniciando extração de eventos")
     if not isinstance(payload, dict):
+        logger.warning("[WebhookParser] Payload inválido: não é um dicionário")
         return []
 
     events: _t.List[dict] = []
     # Evolution
+    logger.debug("[WebhookParser] Tentando extração formato Evolution")
     ev = _extract_evolution(payload)
+    logger.debug(f"[WebhookParser] Evolution: {len(ev)} eventos brutos extraídos")
     for e in ev:
         txt = str(e.get("texto") or "").strip()
         if e.get("from_me") or (e.get("telefone") and txt):
             events.append(e)
+            logger.debug(f"[WebhookParser] Evolution: evento válido extraído - id={e.get('event_id')} telefone={e.get('telefone')} len_texto={len(txt)}")
     if events:
+        logger.info(f"[WebhookParser] Sucesso no formato Evolution: {len(events)} eventos válidos")
         return events
 
     # Cloud API
+    logger.debug("[WebhookParser] Tentando extração formato Cloud API")
     cl = _extract_cloud_api(payload)
+    logger.debug(f"[WebhookParser] Cloud API: {len(cl)} eventos brutos extraídos")
     for e in cl:
         txt = str(e.get("texto") or "").strip()
         if e.get("from_me") or (e.get("telefone") and txt):
             events.append(e)
+            logger.debug(f"[WebhookParser] Cloud API: evento válido extraído - id={e.get('event_id')} telefone={e.get('telefone')} len_texto={len(txt)}")
     if events:
+        logger.info(f"[WebhookParser] Sucesso no formato Cloud API: {len(events)} eventos válidos")
         return events
 
     # WAHA
+    logger.debug("[WebhookParser] Tentando extração formato WAHA")
     wh = _extract_waha(payload)
+    logger.debug(f"[WebhookParser] WAHA: {len(wh)} eventos brutos extraídos")
     for e in wh:
         txt = str(e.get("texto") or "").strip()
         if e.get("from_me") or (e.get("telefone") and txt):
             events.append(e)
+            logger.debug(f"[WebhookParser] WAHA: evento válido extraído - id={e.get('event_id')} telefone={e.get('telefone')} len_texto={len(txt)}")
     if events:
+        logger.info(f"[WebhookParser] Sucesso no formato WAHA: {len(events)} eventos válidos")
         return events
 
     # Heurística genérica
+    logger.debug("[WebhookParser] Tentando extração via heurística genérica")
     base_phone = _digits(
         payload.get("from") or payload.get("number") or payload.get("sender") or (payload.get("chatId") or "").split("@", 1)[0]
     )
@@ -209,6 +228,8 @@ def parse_incoming_events(payload: dict) -> _t.List[dict]:
         or ""
     )
     if base_phone and str(texto or "").strip():
+        logger.info(f"[WebhookParser] Sucesso via heurística genérica: telefone={base_phone} len_texto={len(str(texto or '').strip())}")
         return [{"from_me": False, "telefone": base_phone, "texto": str(texto or "").strip(), "event_id": payload.get("id") or ""}]
 
+    logger.warning("[WebhookParser] Nenhum evento extraído após tentar todos os formatos")
     return []

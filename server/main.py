@@ -24,7 +24,11 @@ if not logger.handlers:
     formatter = logging.Formatter("[%(asctime)s] %(levelname)s - %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+# Força nível DEBUG para capturar todos os logs
+logger.setLevel(logging.DEBUG)
+# Configura logging do uvicorn também
+uvicorn_logger = logging.getLogger("uvicorn")
+uvicorn_logger.setLevel(logging.DEBUG)
 
 app.add_middleware(
     CORSMiddleware,
@@ -355,18 +359,28 @@ async def evolution_webhook(request: Request):
 async def whatsapp_webhook(req: Request):
     try:
         try:
-            payload = await req.json()
-        except Exception:
             raw = await req.body()
+            logger.debug(f"[WhatsApp] Raw payload recebido: {raw.decode('utf-8', errors='ignore')}")
             try:
                 payload = json.loads(raw.decode("utf-8", errors="ignore"))
-            except Exception:
+            except Exception as e:
+                logger.error(f"[WhatsApp] Erro ao decodificar JSON: {str(e)}")
                 payload = {}
+        except Exception as e:
+            logger.error(f"[WhatsApp] Erro ao ler body: {str(e)}")
+            payload = {}
 
-        events = parse_incoming_events(payload or {})
-        if not events:
-            return JSONResponse({"ok": False, "error": "no_events_extracted"})
-        logger.info(f"[WhatsApp] eventos extraídos: {len(events)}")
+        logger.debug(f"[WhatsApp] Payload recebido: {json.dumps(payload, ensure_ascii=False)}")
+        try:
+            events = parse_incoming_events(payload or {})
+            logger.debug(f"[WhatsApp] Tentativa de extração de eventos concluída")
+            if not events:
+                logger.warning("[WhatsApp] Nenhum evento extraído do payload")
+                return JSONResponse({"ok": False, "error": "no_events_extracted"})
+            logger.debug(f"[WhatsApp] Eventos extraídos com sucesso: {json.dumps(events, ensure_ascii=False)}")
+        except Exception as e:
+            logger.error(f"[WhatsApp] Erro ao extrair eventos do payload: {str(e)}", exc_info=True)
+            return JSONResponse({"ok": False, "error": "event_extraction_failed", "detail": str(e)})
         
         # Usa o cache global para deduplicação
 
