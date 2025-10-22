@@ -26,12 +26,14 @@ def _extract_evolution(payload: dict) -> _t.List[dict]:
             return False
 
     def get_event_id(p: dict) -> str:
+        # Usa timestamp como fallback para garantir um ID único
+        import time
         return (
             ((p.get("key") or {}).get("id"))
             or p.get("id")
             or ((payload.get("key") or {}).get("id"))
             or payload.get("id")
-            or ""
+            or f"evt-{int(time.time() * 1000)}"
         )
 
     # Evolution pode vir com messages[] ou data{} ou campos diretos
