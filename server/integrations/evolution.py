@@ -65,7 +65,6 @@ def _normalize_phone_br(s: str) -> str:
     return digits
 
 
-# função: send_text(telefone: str, texto: str) -> dict
 async def send_text(telefone: str, texto: str) -> dict:
     if not EVOLUTION_ENABLED:
         return {"sent": False, "reason": "disabled"}
@@ -92,24 +91,38 @@ async def send_text(telefone: str, texto: str) -> dict:
     # apikey + instância no path
     variants.append(("apikey_path_text", url_with_instance, headers_apikey, {"number": phone, "text": safe_text}))
     variants.append(("apikey_path_textMessage", url_with_instance, headers_apikey, {"number": phone, "textMessage": {"text": safe_text}}))
+    # NOVAS: usa 'message' como chave aceitada por alguns provedores
+    variants.append(("apikey_path_message", url_with_instance, headers_apikey, {"number": phone, "message": safe_text}))
 
     # apikey + sem instância no path
     variants.append(("apikey_path_text_no_instance", url_no_instance, headers_apikey, {"number": phone, "text": safe_text}))
     variants.append(("apikey_path_textMessage_no_instance", url_no_instance, headers_apikey, {"number": phone, "textMessage": {"text": safe_text}}))
+    # NOVAS: sem instância no path com 'message'
+    variants.append(("apikey_path_message_no_instance", url_no_instance, headers_apikey, {"number": phone, "message": safe_text}))
 
     # apikey + instância no corpo
     variants.append(("apikey_body_instance_text", url_no_instance, headers_apikey, {"number": phone, "text": safe_text, "instance": inst}))
+    # NOVA: apikey no corpo com 'message'
+    variants.append(("apikey_body_instance_message", url_no_instance, headers_apikey, {"number": phone, "message": safe_text, "instance": inst}))
 
     # bearer + instanceId no corpo
     variants.append(("bearer_body_instanceId_text", url_no_instance, headers_bearer, {"number": phone, "text": safe_text, "instanceId": inst}))
+    # NOVA: bearer com 'message'
+    variants.append(("bearer_body_instanceId_message", url_no_instance, headers_bearer, {"number": phone, "message": safe_text, "instanceId": inst}))
 
     # bearer + instância no path
     variants.append(("bearer_path_instance_text", url_with_instance, headers_bearer, {"number": phone, "text": safe_text}))
+    # NOVA: bearer com 'message' + instância no path
+    variants.append(("bearer_path_instance_message", url_with_instance, headers_bearer, {"number": phone, "message": safe_text}))
 
     # Variantes com chaves alternativas de destino
     variants.append(("apikey_phone_field", url_no_instance, headers_apikey, {"phone": phone, "text": safe_text, "instance": inst}))
     variants.append(("apikey_to_field", url_no_instance, headers_apikey, {"to": phone, "text": safe_text, "instance": inst}))
     variants.append(("apikey_chatId_field", url_no_instance, headers_apikey, {"chatId": f"{phone}@c.us", "text": safe_text, "instance": inst}))
+    # NOVAS: versões com 'message'
+    variants.append(("apikey_phone_field_message", url_no_instance, headers_apikey, {"phone": phone, "message": safe_text, "instance": inst}))
+    variants.append(("apikey_to_field_message", url_no_instance, headers_apikey, {"to": phone, "message": safe_text, "instance": inst}))
+    variants.append(("apikey_chatId_field_message", url_no_instance, headers_apikey, {"chatId": f"{phone}@c.us", "message": safe_text, "instance": inst}))
 
     # variações com api/v1
     if "/api/" not in EVOLUTION_SEND_TEXT_PATH:
@@ -118,6 +131,15 @@ async def send_text(telefone: str, texto: str) -> dict:
         variants.append(("apikey_v1_path_text", url_v1_with_instance, headers_apikey, {"number": phone, "text": safe_text}))
         variants.append(("apikey_v1_path_text_no_instance", url_v1_no_instance, headers_apikey, {"number": phone, "text": safe_text}))
         variants.append(("bearer_v1_body_instanceId_text", url_v1_no_instance, headers_bearer, {"number": phone, "text": safe_text, "instanceId": inst}))
+        # NOVAS: v1 com 'message'
+        variants.append(("apikey_v1_path_message", url_v1_with_instance, headers_apikey, {"number": phone, "message": safe_text}))
+        variants.append(("apikey_v1_path_message_no_instance", url_v1_no_instance, headers_apikey, {"number": phone, "message": safe_text}))
+        variants.append(("bearer_v1_body_instanceId_message", url_v1_no_instance, headers_bearer, {"number": phone, "message": safe_text, "instanceId": inst}))
+    # NOVOS fallbacks: query string para provedores que exigem token via query
+    url_q_apikey = f"{url_no_instance}?apikey={EVOLUTION_API_KEY}"
+    url_q_token = f"{url_no_instance}?token={EVOLUTION_API_KEY}"
+    variants.append(("query_apikey_message", url_q_apikey, {"Content-Type": "application/json; charset=utf-8"}, {"phone": phone, "message": safe_text, "instanceId": inst}))
+    variants.append(("query_token_message", url_q_token, {"Content-Type": "application/json; charset=utf-8"}, {"phone": phone, "message": safe_text, "instanceId": inst}))
 
     def _classify_attempts(attempts: list[dict]) -> str:
         for a in attempts:
