@@ -181,6 +181,13 @@ def parse_incoming_events(payload: dict) -> _t.List[dict]:
     if not isinstance(payload, dict):
         logger.warning("[WebhookParser] Payload inválido: não é um dicionário")
         return []
+    
+    # Skip status update events that don't need message extraction
+    if isinstance(payload, dict):
+        event_type = payload.get("event", "")
+        if event_type in {"chats.update", "contacts.update", "messages.update", "send.message"}:
+            logger.debug(f"[WebhookParser] Ignorando evento de status: {event_type}")
+            return []
 
     events: _t.List[dict] = []
     # Evolution

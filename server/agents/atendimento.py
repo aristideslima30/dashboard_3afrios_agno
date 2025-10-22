@@ -1,4 +1,8 @@
+import logging
 from ..integrations.openai_client import generate_response
+
+
+logger = logging.getLogger("3afrios.backend")
 
 
 PROMPT_ATENDIMENTO = (
@@ -6,8 +10,9 @@ PROMPT_ATENDIMENTO = (
     "assuntos de suporte ao cliente: prazos de entrega, status de entrega, trocas/devoluções, "
     "atualização de endereço e orientações gerais. Responda sempre em português do Brasil, "
     "de forma breve, educada e objetiva. Peça apenas os dados mínimos necessários (ex.: CEP, "
-    "número do pedido) quando for relevante. Não invente informações e, se algo não for da sua "
-    "alçada (ex.: catálogo detalhado ou criação de pedido), informe que o agente correto cuidará disso."
+    "número do pedido) quando for relevante. Se um cliente perguntar sobre produtos específicos, "
+    "disponibilidade ou preços, informe que você é o agente de atendimento e que outro agente "
+    "especializado em catálogo irá ajudá-lo com essas informações. Não invente informações."
 )
 
 
@@ -29,16 +34,28 @@ def respond(message: str, context: dict | None = None):
     if identidade:
         prompt += f"\n\nContexto da empresa (Docs):\n{identidade[:1200]}"
 
-    llm = generate_response(prompt, message or '')
-    if llm:
-        resposta = llm
-    else:
-        if acao_especial == '[ACAO:ATUALIZAR_ENDERECO]':
-            resposta = 'Posso atualizar seu endereço. Me informe o novo endereço completo.'
-        elif acao_especial == '[ACAO:INICIAR_TROCA_DEVOLUCAO]':
-            resposta = 'Vamos iniciar o processo de troca/devolução e checar elegibilidade.'
-        elif any(k in text for k in ['prazo', 'entrega', 'horário']):
-            resposta = 'Entregas: normalmente 24–48h na região. Quer confirmar seu CEP?'
+    try:
+        llm = generate_response(prompt, message or '')
+        logger.debug(f"[Atendimento] Resposta da OpenAI: {llm}")
+        
+        if llm and len(llm.strip()) > 0:
+            resposta = llm
+        else:
+            logger.warning("[Atendimento] OpenAI retornou resposta vazia")
+            # Respostas de fallback específicas
+            if acao_especial == '[ACAO:ATUALIZAR_ENDERECO]':
+                resposta = 'Posso atualizar seu endereço. Me informe o novo endereço completo.'
+            elif acao_especial == '[ACAO:INICIAR_TROCA_DEVOLUCAO]':
+                resposta = 'Vamos iniciar o processo de troca/devolução e checar elegibilidade.'
+            elif any(k in text for k in ['prazo', 'entrega', 'horário']):
+                resposta = 'Entregas: normalmente 24–48h na região. Quer confirmar seu CEP?'
+            else:
+                # Mensagem mais amigável para perguntas sobre produtos
+                if any(k in text for k in ['tem', 'produto', 'preço', 'valor', 'quanto', 'custa']):
+                    resposta = 'Desculpe, sou o agente de Atendimento e cuido apenas de prazos, entregas e suporte. Vou encaminhar sua pergunta sobre produtos para o agente especializado em catálogo.'
+    except Exception as e:
+        logger.error(f"[Atendimento] Erro ao gerar resposta: {str(e)}")
+        resposta = 'Desculpe, estou com dificuldade técnica no momento. Por favor, tente novamente em alguns instantes.'
 
     return {
         'resposta': resposta,

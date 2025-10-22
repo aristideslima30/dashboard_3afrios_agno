@@ -8,23 +8,59 @@ from ..integrations.google_knowledge import build_context_for_intent
 
 
 INTENT_KEYWORDS: Dict[str, List[str]] = {
-    'Catálogo': ['catálogo', 'catalogo', 'produto', 'produtos', 'preço', 'disponibilidade'],
-    'Pedidos': ['pedido', 'comprar', 'finalizar', 'ordem', 'adicionar', 'carrinho'],
-    'Atendimento': ['troca', 'devolução', 'prazo', 'entrega', 'horário', 'atendimento', 'suporte', 'reclamação', 'endereço'],
-    'Qualificação': ['qualificar', 'interesse', 'orçamento', 'perfil', 'segmento'],
-    'Marketing': ['campanha', 'promoção', 'promocao', 'desconto', 'marketing', 'anúncio', 'newsletter'],
+    'Catálogo': [
+        'catálogo', 'catalogo', 'produto', 'produtos', 'preço', 'disponibilidade',
+        'tem', 'possui', 'vende', 'quanto', 'custa', 'valor', 'cardápio', 'cardapio',
+        'menu', 'lista', 'oferece', 'disponível', 'disponivel'
+    ],
+    'Pedidos': [
+        'pedido', 'comprar', 'finalizar', 'ordem', 'adicionar', 'carrinho',
+        'quero', 'preciso', 'encomenda', 'encomendar', 'fazer pedido'
+    ],
+    'Atendimento': [
+        'troca', 'devolução', 'prazo', 'entrega', 'horário', 'atendimento', 
+        'suporte', 'reclamação', 'endereço', 'problema', 'ajuda', 'dúvida',
+        'contato', 'telefone', 'email'
+    ],
+    'Qualificação': [
+        'qualificar', 'interesse', 'orçamento', 'perfil', 'segmento',
+        'informação', 'informações', 'detalhes'
+    ],
+    'Marketing': [
+        'campanha', 'promoção', 'promocao', 'desconto', 'marketing',
+        'anúncio', 'newsletter', 'oferta', 'novidade'
+    ],
 }
 
 def _score_intent(text: str) -> Tuple[str, int, List[str]]:
-    best_intent = 'Atendimento'
+    text = text.lower()
+    best_intent = None
     best_score = 0
     matched_terms: List[str] = []
+    
+    # Primeiro tenta match exato com palavras-chave
     for intent, keywords in INTENT_KEYWORDS.items():
-        score = sum(1 for k in keywords if k in text)
+        score = sum(1 for k in keywords if k.lower() in text)
         if score > best_score:
             best_intent = intent
             best_score = score
-            matched_terms = [k for k in keywords if k in text]
+            matched_terms = [k for k in keywords if k.lower() in text]
+    
+    # Se não encontrou nenhum match, tenta análise semântica simples
+    if best_score == 0:
+        # Perguntas sobre produtos/disponibilidade
+        if any(p in text for p in ['tem ', 'têm ', 'teria ', 'teriam ', 'vocês tem ', 'vcs tem ']):
+            best_intent = 'Catálogo'
+            best_score = 1
+        # Perguntas sobre compras
+        elif any(p in text for p in ['quero ', 'queria ', 'gostaria ', 'preciso ']):
+            best_intent = 'Pedidos'
+            best_score = 1
+    
+    # Se ainda não encontrou nada, usa Atendimento como fallback
+    if not best_intent:
+        best_intent = 'Atendimento'
+        
     return best_intent, best_score, matched_terms
 
 def classify_intent_llm(message: str) -> Dict[str, Any]:
