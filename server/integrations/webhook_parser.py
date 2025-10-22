@@ -51,17 +51,23 @@ def _extract_evolution(payload: dict) -> _t.List[dict]:
             base = remote or ""
         telefone = _digits(base)
         # texto
-        t = p.get("text") or p.get("message") or p.get("body") or p.get("mensagem") or p.get("msg")
+        t = p.get("text") or p.get("body") or p.get("mensagem") or p.get("msg")
         if not t:
             msg = p.get("message") or {}
             if isinstance(msg, dict):
                 t = (
-                    msg.get("conversation")
+                    msg.get("text")
+                    or msg.get("conversation")
                     or (msg.get("extendedTextMessage") or {}).get("text")
+                    or (msg.get("textMessage") or {}).get("text")
+                    or (msg.get("textMessageData") or {}).get("textMessage")
                     or (msg.get("ephemeralMessage") or {}).get("message", {}).get("extendedTextMessage", {}).get("text")
                     or (msg.get("listResponseMessage") or {}).get("title")
                     or ""
                 )
+        if not t and isinstance(p.get("textMessage"), dict):
+            tm = p.get("textMessage") or {}
+            t = tm.get("text") or tm.get("textMessage") or ""
         texto = str(t or "").strip()
         events.append({"from_me": False, "telefone": telefone, "texto": texto, "event_id": get_event_id(p)})
     return events

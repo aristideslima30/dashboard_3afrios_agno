@@ -165,17 +165,23 @@ async def evolution_webhook(request: Request):
             return re.sub(r"\D", "", str(base or ""))
 
         def _extract_text(p: dict) -> str:
-            t = p.get("text") or p.get("message") or p.get("body") or p.get("mensagem") or p.get("msg")
+            t = p.get("text") or p.get("body") or p.get("mensagem") or p.get("msg")
             if not t:
                 msg = p.get("message") or {}
                 if isinstance(msg, dict):
                     t = (
-                        msg.get("conversation")
+                        msg.get("text")
+                        or msg.get("conversation")
                         or (msg.get("extendedTextMessage") or {}).get("text")
+                        or (msg.get("textMessage") or {}).get("text")
+                        or (msg.get("textMessageData") or {}).get("textMessage")
                         or (msg.get("ephemeralMessage") or {}).get("message", {}).get("extendedTextMessage", {}).get("text")
                         or (msg.get("listResponseMessage") or {}).get("title")
                         or ""
                     )
+            if not t and isinstance(p.get("textMessage"), dict):
+                tm = p.get("textMessage") or {}
+                t = tm.get("text") or tm.get("textMessage") or ""
             return str(t or "").strip()
 
         telefone = _extract_phone(p)
@@ -217,7 +223,7 @@ async def evolution_webhook(request: Request):
             _DEDUP_MSG_CACHE = {}  # type: ignore
 
         now = time.time()
-        ttl_seconds = 180
+        ttl_seconds = DEDUPE_TTL_SECONDS
 
         # prune expirados (event_id)
         for k, exp in list(_DEDUP_EVENT_CACHE.items()):  # type: ignore
@@ -285,27 +291,23 @@ async def evolution_webhook(request: Request):
             telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
             texto_out = result.get("resposta_bot")
 
-            # Inicializa/prune cache de saídas
-            try:
-                _SENT_CACHE  # type: ignore
-            except NameError:
-                _SENT_CACHE = {}  # type: ignore
-
+            # Inicializa/prune cache de saídas (sem criar variável local)
+            global _SENT_CACHE
             now2 = time.time()
-            for k, exp in list(_SENT_CACHE.items()):  # type: ignore
+            for k, exp in list(_SENT_CACHE.items()):
                 if exp < now2:
-                    _SENT_CACHE.pop(k, None)  # type: ignore
+                    _SENT_CACHE.pop(k, None)
 
             send_sig = f"{telefone_out}|{(texto_out or '').strip().lower()}"
             if telefone_out and texto_out:
-                if send_sig in _SENT_CACHE:  # type: ignore
+                if send_sig in _SENT_CACHE:
                     result["enviado_via_evolution"] = False
                     result["evolution_status"] = {"skipped": "duplicate_outgoing", "send_sig": send_sig}
                 else:
                     evo = await send_text(telefone_out, texto_out)
                     result["enviado_via_evolution"] = bool(evo.get("sent"))
                     result["evolution_status"] = evo
-                    _SENT_CACHE[send_sig] = time.time() + ttl_seconds  # type: ignore
+                    _SENT_CACHE[send_sig] = time.time() + ttl_seconds
 
             try:
                 supa = await persist_conversation(result)
@@ -418,40 +420,35 @@ async def whatsapp_webhook(req: Request):
                 result["contexto_conversa"] = _normalize_ptbr(cc)
             result["event_id"] = event_id
 
-            # envio Evolution com dedupe de saída seguro
-            telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
-            texto_out = result.get("resposta_bot")
-
-            # Inicializa/prune cache de saídas (global)
-            global _SENT_CACHE
+            # envio Evolution com dedupe de saída
             try:
-                _SENT_CACHE  # type: ignore
-            except Exception:
-                _SENT_CACHE = {}  # type: ignore
+                telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
+                texto_out = result.get("resposta_bot")
 
-            for k, exp in list(_SENT_CACHE.items()):  # type: ignore
-                if exp < time.time():
-                    _SENT_CACHE.pop(k, None)  # type: ignore
+                # prune expirados do cache de saídas
+                global _SENT_CACHE
+                for k, exp in list(_SENT_CACHE.items()):
+                    if exp < time.time():
+                        _SENT_CACHE.pop(k, None)
 
-            send_sig = f"{telefone_out}|{(texto_out or '').strip().lower()}"
-            if telefone_out and texto_out:
-                if send_sig in _SENT_CACHE:  # type: ignore
-                    result["enviado_via_evolution"] = False
-                    result["evolution_status"] = {"skipped": "duplicate_outgoing", "send_sig": send_sig}
-                else:
-                    evo = await send_text(telefone_out, texto_out)
-                    result["enviado_via_evolution"] = bool(evo.get("sent"))
-                    result["evolution_status"] = evo
-                    _SENT_CACHE[send_sig] = time.time() + ttl_seconds  # type: ignore
+                send_sig = f"{telefone_out}|{(texto_out or '').strip().lower()}"
+                if telefone_out and texto_out:
+                    if send_sig in _SENT_CACHE:
+                        result["enviado_via_evolution"] = False
+                        result["evolution_status"] = {"skipped": "duplicate_outgoing", "send_sig": send_sig}
+                    else:
+                        evo = await send_text(telefone_out, texto_out)
+                        result["enviado_via_evolution"] = bool(evo.get("sent"))
+                        result["evolution_status"] = evo
+                        _SENT_CACHE[send_sig] = time.time() + ttl_seconds
 
-            try:
-                supa = await persist_conversation(result)
-                result["persistencia_supabase"] = supa
+                try:
+                    supa = await persist_conversation(result)
+                    result["persistencia_supabase"] = supa
+                except Exception:
+                    pass
             except Exception:
                 pass
-            except Exception:
-                pass
-            pass
 
             processed.append(_json_safe(result))
 
@@ -529,3 +526,10 @@ async def _global_exception_handler(request: Request, exc: Exception):
     logger.error("Exceção não tratada", exc_info=True)
     safe = _json_safe({"ok": False, "error": "internal_server_error", "detail": str(exc)})
     return JSONResponse(safe, media_type="application/json; charset=utf-8", status_code=500)
+
+
+# Caches globais e TTL para dedup
+DEDUPE_TTL_SECONDS = 180
+_DEDUP_EVENT_CACHE = {}
+_DEDUP_MSG_CACHE = {}
+_SENT_CACHE = {}
