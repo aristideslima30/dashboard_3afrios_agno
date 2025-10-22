@@ -13,7 +13,7 @@ def _digits(s: str | None) -> str:
 
 def _extract_evolution(payload: dict) -> _t.List[dict]:
     events: _t.List[dict] = []
-    from_me_keys = ("fromMe",)
+    logger = logging.getLogger("3afrios.backend")
 
     def is_from_me(p: dict) -> bool:
         try:
@@ -34,12 +34,16 @@ def _extract_evolution(payload: dict) -> _t.List[dict]:
             or ""
         )
 
-    # Evolution pode vir com messages[] ou campos diretos
+    # Evolution pode vir com messages[] ou data{} ou campos diretos
     items = []
-    if isinstance(payload, dict) and isinstance(payload.get("messages"), list) and payload["messages"]:
-        items = [payload["messages"][0] or {}]
-    else:
-        items = [payload]
+    if isinstance(payload, dict):
+        if isinstance(payload.get("messages"), list) and payload["messages"]:
+            items = [payload["messages"][0] or {}]
+        elif isinstance(payload.get("data"), dict) and payload.get("event") == "messages.upsert":
+            logger.debug("[WebhookParser] Evolution: encontrado formato messages.upsert")
+            items = [payload["data"]]
+        else:
+            items = [payload]
 
     for p in items:
         if is_from_me(p):
@@ -80,6 +84,7 @@ def _extract_evolution(payload: dict) -> _t.List[dict]:
                 ]:
                     if isinstance(cand, str) and cand.strip():
                         texto = cand.strip()
+                        logger.debug(f"[WebhookParser] Evolution: texto encontrado no campo {cand}")
                         break
 
         if not texto:
