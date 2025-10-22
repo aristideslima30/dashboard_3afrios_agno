@@ -363,6 +363,9 @@ async def whatsapp_webhook(req: Request):
             logger.debug(f"[WhatsApp] Raw payload recebido: {raw.decode('utf-8', errors='ignore')}")
             try:
                 payload = json.loads(raw.decode("utf-8", errors="ignore"))
+                # Identifica tipo de evento para debug
+                if isinstance(payload, dict) and payload.get("event"):
+                    logger.info(f"[WhatsApp] Tipo de evento recebido: {payload['event']}")
             except Exception as e:
                 logger.error(f"[WhatsApp] Erro ao decodificar JSON: {str(e)}")
                 payload = {}
