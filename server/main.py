@@ -410,6 +410,8 @@ async def whatsapp_webhook(req: Request):
                 continue
 
             # dedupe por event_id e assinatura
+            import time
+            now = time.time()
             if event_id in _DEDUP_EVENT_CACHE:  # type: ignore
                 ignored.append({"ignored": "duplicate_event", "event_id": event_id})
                 continue
