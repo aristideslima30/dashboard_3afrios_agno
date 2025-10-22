@@ -414,9 +414,11 @@ async def whatsapp_webhook(req: Request):
             }
 
             try:
+                logger.info(f"[WhatsApp] processando mensagem: telefone={telefone} texto={texto}")
                 result = await handle_message(internal)
+                logger.info(f"[WhatsApp] resposta do orquestrador: {json.dumps(result, ensure_ascii=False)}")
             except Exception as e:
-                logger.error("Falha no orquestrador (/whatsapp/webhook)", exc_info=True)
+                logger.error(f"Falha no orquestrador (/whatsapp/webhook): {str(e)}", exc_info=True)
                 processed.append({"ok": False, "error": "orchestrator_failed", "detail": str(e), "event_id": event_id})
                 continue
 
@@ -457,10 +459,13 @@ async def whatsapp_webhook(req: Request):
                         _SENT_CACHE[send_sig] = now + DEDUPE_TTL_SECONDS
 
                 try:
+                    logger.info(f"[WhatsApp] tentando persistir conversa: {json.dumps(result, ensure_ascii=False)}")
                     supa = await persist_conversation(result)
+                    logger.info(f"[WhatsApp] resultado persistência: {json.dumps(supa, ensure_ascii=False)}")
                     result["persistencia_supabase"] = supa
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"Erro ao persistir conversa: {str(e)}", exc_info=True)
+                    result["persistencia_supabase"] = {"ok": False, "error": str(e)}
             except Exception:
                 pass
 
