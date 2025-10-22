@@ -70,6 +70,13 @@ async def webhook(request: Request):
             or payload.get('telefoneCliente')
             or (payload.get('cliente') or {}).get('telefone')
         )
+        texto = payload.get('mensagem', '')
+        
+        # Verifica duplicação usando cache global (exceto para mensagens manuais)
+        if payload.get('acao') != 'responder-manual' and tel_log and texto:
+            if _check_global_dedup(tel_log, texto):
+                return JSONResponse(_json_safe({"ok": True, "ignored": "duplicate_message", "telefone": tel_log}))
+        
         logger.info(f"POST /webhook recebido: acao={payload.get('acao')} telefone={tel_log} dryRun={payload.get('dryRun')}")
     except Exception as e:
         logger.error("Falha ao parsear JSON no /webhook", exc_info=True)
@@ -360,26 +367,8 @@ async def whatsapp_webhook(req: Request):
         if not events:
             return JSONResponse({"ok": False, "error": "no_events_extracted"})
         logger.info(f"[WhatsApp] eventos extraídos: {len(events)}")
-
-        # caches em memória para dedupe
-        try:
-            _DEDUP_EVENT_CACHE  # type: ignore
-        except NameError:
-            _DEDUP_EVENT_CACHE = {}  # type: ignore
-        try:
-            _DEDUP_MSG_CACHE  # type: ignore
-        except NameError:
-            _DEDUP_MSG_CACHE = {}  # type: ignore
-
-        now = time.time()
-        ttl_seconds = 180
-        # prune expirados
-        for k, exp in list(_DEDUP_EVENT_CACHE.items()):  # type: ignore
-            if exp < now:
-                _DEDUP_EVENT_CACHE.pop(k, None)  # type: ignore
-        for k, exp in list(_DEDUP_MSG_CACHE.items()):  # type: ignore
-            if exp < now:
-                _DEDUP_MSG_CACHE.pop(k, None)  # type: ignore
+        
+        # Usa o cache global para deduplicação
 
         processed = []
         ignored = []
@@ -409,12 +398,10 @@ async def whatsapp_webhook(req: Request):
                 continue
             _DEDUP_EVENT_CACHE[event_id] = now + ttl_seconds  # type: ignore
 
-            msg_sig = f"{telefone}|{texto.lower()}"
-            if telefone and texto and msg_sig in _DEDUP_MSG_CACHE:  # type: ignore
+            # Verifica duplicação usando cache global
+            if _check_global_dedup(telefone, texto, event_id):
                 ignored.append({"ignored": "duplicate_message", "event_id": event_id, "telefone": telefone})
                 continue
-            if telefone and texto:
-                _DEDUP_MSG_CACHE[msg_sig] = now + ttl_seconds  # type: ignore
 
             logger.info(f"[WhatsApp] inbound: telefone={telefone} len(texto)={len(texto)} event_id={event_id}")
 
@@ -423,6 +410,7 @@ async def whatsapp_webhook(req: Request):
                 "mensagem": texto,
                 "telefoneCliente": telefone,
                 "dryRun": False,
+                "source": "whatsapp",  # Identifica origem da mensagem
             }
 
             try:
@@ -452,8 +440,9 @@ async def whatsapp_webhook(req: Request):
 
                 # prune expirados do cache de saídas
                 global _SENT_CACHE
+                now = time.time()
                 for k, exp in list(_SENT_CACHE.items()):
-                    if exp < time.time():
+                    if exp < now:
                         _SENT_CACHE.pop(k, None)
 
                 send_sig = f"{telefone_out}|{(texto_out or '').strip().lower()}"
@@ -465,7 +454,7 @@ async def whatsapp_webhook(req: Request):
                         evo = await send_text(telefone_out, texto_out)
                         result["enviado_via_evolution"] = bool(evo.get("sent"))
                         result["evolution_status"] = evo
-                        _SENT_CACHE[send_sig] = time.time() + ttl_seconds
+                        _SENT_CACHE[send_sig] = now + DEDUPE_TTL_SECONDS
 
                 try:
                     supa = await persist_conversation(result)
@@ -555,6 +544,31 @@ async def _global_exception_handler(request: Request, exc: Exception):
 
 # Caches globais e TTL para dedup
 DEDUPE_TTL_SECONDS = 180
+_GLOBAL_DEDUP_CACHE = {}  # Cache unificado para todas as mensagens
 _DEDUP_EVENT_CACHE = {}
 _DEDUP_MSG_CACHE = {}
 _SENT_CACHE = {}
+
+def _check_global_dedup(telefone: str, texto: str, event_id: str = "") -> bool:
+    """Verifica se uma mensagem já foi processada recentemente"""
+    try:
+        now = time.time()
+        # Limpa cache expirado
+        for k, (exp, _) in list(_GLOBAL_DEDUP_CACHE.items()):
+            if exp < now:
+                _GLOBAL_DEDUP_CACHE.pop(k, None)
+        
+        # Gera assinatura única da mensagem
+        msg_sig = f"{telefone}|{texto.lower().strip()}"
+        if event_id:
+            msg_sig = f"{msg_sig}|{event_id}"
+        
+        # Verifica se já foi processada
+        if msg_sig in _GLOBAL_DEDUP_CACHE:
+            return True
+        
+        # Marca como processada
+        _GLOBAL_DEDUP_CACHE[msg_sig] = (now + DEDUPE_TTL_SECONDS, True)
+        return False
+    except Exception:
+        return False
