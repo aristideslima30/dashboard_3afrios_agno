@@ -61,6 +61,10 @@ def route_to_agent(message: str) -> Dict[str, Any]:
 
 # Atualiza para usar roteamento com confiança, override e normalização de telefone
 async def handle_message(payload: dict) -> dict:
+    import logging
+    logger = logging.getLogger("3afrios.backend")
+    
+    logger.info("[Orchestrator] Iniciando processamento de mensagem")
     acao = payload.get('acao', 'desconhecida')
     mensagem = payload.get('mensagem', '')
     telefone_raw = (
@@ -71,6 +75,8 @@ async def handle_message(payload: dict) -> dict:
     )
     cliente_id_raw = payload.get('clienteId')  # novo: id do cliente vindo do Dashboard
     dry_run = bool(payload.get('dryRun'))
+    
+    logger.debug(f"[Orchestrator] Dados recebidos: acao={acao} telefone={telefone_raw} msg_len={len(mensagem)}")
 
     telefone_normalizado = ''.join(ch for ch in str(telefone_raw) if ch.isdigit())
     historico = await fetch_recent_messages_by_telefone(telefone_normalizado or telefone_raw, limit=6)
@@ -106,6 +112,8 @@ async def handle_message(payload: dict) -> dict:
     override = (payload.get('target_agent') or '').strip()
     routing = route_to_agent(mensagem)
     agente_responsavel = override if override in INTENT_KEYWORDS else routing['intent']
+    
+    logger.info(f"[Orchestrator] Roteamento: agente={agente_responsavel} confiança={routing.get('confidence')} override={bool(override)}")
 
     # Viés de roteamento baseado no histórico: se repetiu 2+ vezes e confiança baixa
     try:
@@ -132,7 +140,13 @@ async def handle_message(payload: dict) -> dict:
     contexto_google = build_context_for_intent(agente_responsavel)
 
     # Passa contexto para o agente
-    svc = agent_mod.respond(mensagem, context=contexto_google)
+    try:
+        logger.debug(f"[Orchestrator] Chamando agente {agente_responsavel}")
+        svc = agent_mod.respond(mensagem, context=contexto_google)
+        logger.debug(f"[Orchestrator] Resposta do agente: len={len(svc.get('resposta', ''))} acao={svc.get('acao_especial')}")
+    except Exception as e:
+        logger.error(f"[Orchestrator] Erro ao processar resposta do agente: {str(e)}", exc_info=True)
+        raise
 
     contexto_curto = []
     for item in historico[:6]:

@@ -476,12 +476,15 @@ async def whatsapp_webhook(req: Request):
                         _SENT_CACHE[send_sig] = now + DEDUPE_TTL_SECONDS
 
                 try:
-                    logger.info(f"[WhatsApp] tentando persistir conversa: {json.dumps(result, ensure_ascii=False)}")
+                    logger.info(f"[WhatsApp] Tentando persistir conversa: {json.dumps(result, ensure_ascii=False)}")
                     supa = await persist_conversation(result)
-                    logger.info(f"[WhatsApp] resultado persistência: {json.dumps(supa, ensure_ascii=False)}")
+                    if not supa.get("ok"):
+                        logger.error(f"[WhatsApp] Erro ao persistir no Supabase: {json.dumps(supa, ensure_ascii=False)}")
+                    else:
+                        logger.info(f"[WhatsApp] Persistência bem sucedida: {json.dumps(supa, ensure_ascii=False)}")
                     result["persistencia_supabase"] = supa
                 except Exception as e:
-                    logger.error(f"Erro ao persistir conversa: {str(e)}", exc_info=True)
+                    logger.error(f"[WhatsApp] Erro ao persistir conversa: {str(e)}", exc_info=True)
                     result["persistencia_supabase"] = {"ok": False, "error": str(e)}
             except Exception:
                 pass
