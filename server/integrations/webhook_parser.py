@@ -50,25 +50,45 @@ def _extract_evolution(payload: dict) -> _t.List[dict]:
                 remote = remote.split("@", 1)[0]
             base = remote or ""
         telefone = _digits(base)
-        # texto
-        t = p.get("text") or p.get("body") or p.get("mensagem") or p.get("msg")
-        if not t:
-            msg = p.get("message") or {}
+        # texto (apenas strings válidas; evita usar dict diretamente)
+        texto = ""
+        for cand in [
+            p.get("text"),
+            p.get("body"),
+            p.get("mensagem"),
+            p.get("msg"),
+        ]:
+            if isinstance(cand, str) and cand.strip():
+                texto = cand.strip()
+                break
+
+        if not texto:
+            msg = p.get("message")
             if isinstance(msg, dict):
-                t = (
-                    msg.get("text")
-                    or msg.get("conversation")
-                    or (msg.get("extendedTextMessage") or {}).get("text")
-                    or (msg.get("textMessage") or {}).get("text")
-                    or (msg.get("textMessageData") or {}).get("textMessage")
-                    or (msg.get("ephemeralMessage") or {}).get("message", {}).get("extendedTextMessage", {}).get("text")
-                    or (msg.get("listResponseMessage") or {}).get("title")
-                    or ""
-                )
-        if not t and isinstance(p.get("textMessage"), dict):
-            tm = p.get("textMessage") or {}
-            t = tm.get("text") or tm.get("textMessage") or ""
-        texto = str(t or "").strip()
+                for cand in [
+                    msg.get("text"),
+                    msg.get("conversation"),
+                    (msg.get("extendedTextMessage") or {}).get("text"),
+                    (msg.get("textMessage") or {}).get("text"),
+                    (msg.get("textMessageData") or {}).get("textMessage"),
+                    (msg.get("ephemeralMessage") or {}).get("message", {}).get("extendedTextMessage", {}).get("text"),
+                    (msg.get("listResponseMessage") or {}).get("title"),
+                ]:
+                    if isinstance(cand, str) and cand.strip():
+                        texto = cand.strip()
+                        break
+
+        if not texto:
+            tm = p.get("textMessage")
+            if isinstance(tm, dict):
+                for cand in [
+                    tm.get("text"),
+                    tm.get("textMessage"),
+                ]:
+                    if isinstance(cand, str) and cand.strip():
+                        texto = cand.strip()
+                        break
+
         events.append({"from_me": False, "telefone": telefone, "texto": texto, "event_id": get_event_id(p)})
     return events
 

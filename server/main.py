@@ -249,6 +249,25 @@ async def evolution_webhook(request: Request):
 
         # IGNORA eventos sem texto (acks/status) para não acionar o orquestrador
         if not texto:
+            try:
+                sample = {
+                    "top_keys": list(p.keys()),
+                    "msg_keys": list((p.get("message") or {}).keys()),
+                    "fields": {
+                        "text": p.get("text"),
+                        "body": p.get("body"),
+                        "mensagem": p.get("mensagem"),
+                        "msg": p.get("msg"),
+                        "message.text": (p.get("message") or {}).get("text"),
+                        "message.conversation": (p.get("message") or {}).get("conversation"),
+                        "message.extendedTextMessage.text": ((p.get("message") or {}).get("extendedTextMessage") or {}).get("text"),
+                        "textMessage.text": (p.get("textMessage") or {}).get("text"),
+                        "textMessageData.textMessage": (p.get("textMessageData") or {}).get("textMessage"),
+                    },
+                }
+                logger.info(f"[Evolution] empty_text debug event_id={event_id} telefone={telefone} sample={json.dumps(sample, ensure_ascii=False)[:400]}")
+            except Exception:
+                pass
             logger.info(f"[Evolution] inbound ignorado: empty_text telefone={telefone} event_id={event_id}")
             return JSONResponse({"ok": True, "ignored": "empty_text", "event_id": event_id})
 
@@ -340,6 +359,7 @@ async def whatsapp_webhook(req: Request):
         events = parse_incoming_events(payload or {})
         if not events:
             return JSONResponse({"ok": False, "error": "no_events_extracted"})
+        logger.info(f"[WhatsApp] eventos extraídos: {len(events)}")
 
         # caches em memória para dedupe
         try:
@@ -367,10 +387,15 @@ async def whatsapp_webhook(req: Request):
             from_me = bool(ev.get("from_me"))
             telefone = (ev.get("telefone") or "").strip()
             texto = (ev.get("texto") or "").strip()
-            event_id = ev.get("event_id") or f"evt-{int(now * 1000)}"
+            event_id = (ev.get("event_id") or f"evt-{int(time.time()*1000)}")
 
             if from_me:
-                ignored.append({"ignored": "from_me", "event_id": event_id})
+                logger.info(f"[WhatsApp] inbound ignorado: from_me telefone={telefone} event_id={event_id}")
+                ignored.append({"ignored": "from_me", "event_id": event_id, "telefone": telefone})
+                continue
+            if not texto:
+                logger.info(f"[WhatsApp] inbound ignorado: empty_text telefone={telefone} event_id={event_id}")
+                ignored.append({"ignored": "empty_text", "event_id": event_id, "telefone": telefone})
                 continue
 
             # IGNORA eventos sem texto (acks/status)
