@@ -412,10 +412,11 @@ async def whatsapp_webhook(req: Request):
             # dedupe por event_id e assinatura
             import time
             now = time.time()
+            ttl = 180  # 3 minutos de TTL para deduplicação
             if event_id in _DEDUP_EVENT_CACHE:  # type: ignore
                 ignored.append({"ignored": "duplicate_event", "event_id": event_id})
                 continue
-            _DEDUP_EVENT_CACHE[event_id] = now + ttl_seconds  # type: ignore
+            _DEDUP_EVENT_CACHE[event_id] = now + ttl  # type: ignore
 
             # Verifica duplicação usando cache global
             if _check_global_dedup(telefone, texto, event_id):
