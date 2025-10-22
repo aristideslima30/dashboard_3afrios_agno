@@ -142,6 +142,28 @@ async def send_text(telefone: str, texto: str) -> dict:
         variants.append(("apikey_v1_path_message", url_v1_with_instance, headers_apikey, {"number": phone, "message": safe_text}))
         variants.append(("apikey_v1_path_message_no_instance", url_v1_no_instance, headers_apikey, {"number": phone, "message": safe_text}))
         variants.append(("bearer_v1_body_instanceId_message", url_v1_no_instance, headers_bearer, {"number": phone, "message": safe_text, "instanceId": inst}))
+
+    # Querystring com apikey/token
+    url_with_instance_q_apikey = f"{url_with_instance}?apikey={EVOLUTION_API_KEY}"
+    url_no_instance_q_apikey = f"{url_no_instance}?apikey={EVOLUTION_API_KEY}"
+    url_with_instance_q_token = f"{url_with_instance}?token={EVOLUTION_API_KEY}"
+    url_no_instance_q_token = f"{url_no_instance}?token={EVOLUTION_API_KEY}"
+
+    variants.append(("apikey_qs_path_number_text", url_with_instance_q_apikey, headers_apikey, {"number": phone, "text": safe_text}))
+    variants.append(("apikey_qs_path_chatId_text", url_with_instance_q_apikey, headers_apikey, {"chatId": f"{phone}@c.us", "text": safe_text}))
+    variants.append(("token_qs_path_chatId_text", url_with_instance_q_token, headers_apikey, {"chatId": f"{phone}@c.us", "text": safe_text}))
+    variants.append(("apikey_qs_noinst_chatId_text", url_no_instance_q_apikey, headers_apikey, {"chatId": f"{phone}@c.us", "text": safe_text, "instance": inst}))
+    variants.append(("token_qs_noinst_chatId_text", url_no_instance_q_token, headers_apikey, {"chatId": f"{phone}@c.us", "text": safe_text, "instance": inst}))
+
+    # chatId com textMessage aninhado
+    variants.append(("apikey_path_chatId_textMessage", url_with_instance, headers_apikey, {"chatId": f"{phone}@c.us", "textMessage": {"text": safe_text}}))
+    variants.append(("apikey_noinst_chatId_textMessage", url_no_instance, headers_apikey, {"chatId": f"{phone}@c.us", "textMessage": {"text": safe_text}, "instance": inst}))
+
+    # Caminho alternativo 'message/send' (alguns provedores)
+    url_alt_send = f"{EVOLUTION_BASE_URL.rstrip('/')}/message/send"
+    url_alt_send_with_instance = f"{url_alt_send.rstrip('/')}/{inst}"
+    variants.append(("apikey_alt_send_path_chatId_text", url_alt_send_with_instance, headers_apikey, {"chatId": f"{phone}@c.us", "text": safe_text}))
+    variants.append(("apikey_alt_send_noinst_chatId_text", url_alt_send, headers_apikey, {"chatId": f"{phone}@c.us", "text": safe_text, "instance": inst}))
     # NOVOS fallbacks: query string para provedores que exigem token via query
     url_q_apikey = f"{url_no_instance}?apikey={EVOLUTION_API_KEY}"
     url_q_token = f"{url_no_instance}?token={EVOLUTION_API_KEY}"
