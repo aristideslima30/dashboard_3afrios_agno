@@ -141,6 +141,17 @@ async def send_text(telefone: str, texto: str) -> dict:
     variants.append(("query_apikey_message", url_q_apikey, {"Content-Type": "application/json; charset=utf-8"}, {"phone": phone, "message": safe_text, "instanceId": inst}))
     variants.append(("query_token_message", url_q_token, {"Content-Type": "application/json; charset=utf-8"}, {"phone": phone, "message": safe_text, "instanceId": inst}))
 
+    # Fallbacks de query-string: provedores que exigem token na URL e 'number'
+    url_q_apikey_no_inst = f"{url_no_instance}?apikey={EVOLUTION_API_KEY}"
+    url_q_token_no_inst = f"{url_no_instance}?token={EVOLUTION_API_KEY}"
+    url_q_apikey_with_inst = f"{url_with_instance}?apikey={EVOLUTION_API_KEY}"
+    url_q_token_with_inst = f"{url_with_instance}?token={EVOLUTION_API_KEY}"
+
+    variants.append(("query_apikey_number_text", url_q_apikey_no_inst, {"Content-Type": "application/json; charset=utf-8"}, {"number": phone, "text": safe_text, "instance": inst}))
+    variants.append(("query_token_number_text", url_q_token_no_inst, {"Content-Type": "application/json; charset=utf-8"}, {"number": phone, "text": safe_text, "instance": inst}))
+    variants.append(("query_apikey_number_text_with_inst", url_q_apikey_with_inst, {"Content-Type": "application/json; charset=utf-8"}, {"number": phone, "text": safe_text}))
+    variants.append(("query_token_number_text_with_inst", url_q_token_with_inst, {"Content-Type": "application/json; charset=utf-8"}, {"number": phone, "text": safe_text}))
+
     def _classify_attempts(attempts: list[dict]) -> str:
         for a in attempts:
             status = a.get("status_code")
