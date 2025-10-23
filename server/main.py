@@ -13,6 +13,7 @@ from .agents.orchestrator import handle_message
 from .integrations.evolution import send_text
 from .integrations.supabase_store import persist_conversation
 from .integrations.webhook_parser import parse_incoming_events
+from .integrations.google_knowledge import build_context_for_intent
 
 # após a inicialização do app
 app = FastAPI(title="3A Frios Backend", version="0.1.0")
@@ -104,6 +105,18 @@ async def webhook(request: Request):
             evo = await send_text(telefone, texto)
             result["enviado_via_evolution"] = bool(evo.get("sent"))
             result["evolution_status"] = evo
+
+            # Enviar snippet do catálogo quando houver ação especial
+            if (result.get("acao_especial") or "").strip() == "[ACAO:ENVIAR_CATALOGO]":
+                try:
+                    ctx = build_context_for_intent("Catálogo")
+                    prev = (ctx.get("catalog_preview") or "").strip()
+                    if prev:
+                        lines = [l for l in prev.splitlines() if l.strip()]
+                        snippet = "\n".join(lines[:12])
+                        await send_text(telefone, snippet)
+                except Exception:
+                    pass
         # Persistência no Supabase (com tolerância a falhas)
         try:
             supa = await persist_conversation(result)
@@ -339,6 +352,18 @@ async def evolution_webhook(request: Request):
                     result["evolution_status"] = evo
                     _SENT_CACHE[send_sig] = time.time() + ttl_seconds
 
+                    # Enviar snippet do catálogo quando houver ação especial
+                    if (result.get("acao_especial") or "").strip() == "[ACAO:ENVIAR_CATALOGO]":
+                        try:
+                            ctx = build_context_for_intent("Catálogo")
+                            prev = (ctx.get("catalog_preview") or "").strip()
+                            if prev:
+                                lines = [l for l in prev.splitlines() if l.strip()]
+                                snippet = "\n".join(lines[:12])
+                                await send_text(telefone_out, snippet)
+                        except Exception:
+                            pass
+            # Persistência Supabase
             try:
                 supa = await persist_conversation(result)
                 result["persistencia_supabase"] = supa
@@ -478,20 +503,34 @@ async def whatsapp_webhook(req: Request):
                         result["evolution_status"] = evo
                         _SENT_CACHE[send_sig] = now + DEDUPE_TTL_SECONDS
 
+                        # Enviar snippet do catálogo quando houver ação especial
+                        if (result.get("acao_especial") or "").strip() == "[ACAO:ENVIAR_CATALOGO]":
+                            try:
+                                ctx = build_context_for_intent("Catálogo")
+                                prev = (ctx.get("catalog_preview") or "").strip()
+                                if prev:
+                                    lines = [l for l in prev.splitlines() if l.strip()]
+                                    snippet = "\n".join(lines[:12])
+                                    await send_text(telefone_out, snippet)
+                            except Exception:
+                                pass
+
+                # Persistência Supabase
                 try:
-                    logger.info(f"[WhatsApp] Tentando persistir conversa: {json.dumps(result, ensure_ascii=False)}")
                     supa = await persist_conversation(result)
-                    if not supa.get("ok"):
-                        logger.error(f"[WhatsApp] Erro ao persistir no Supabase: {json.dumps(supa, ensure_ascii=False)}")
-                    else:
-                        logger.info(f"[WhatsApp] Persistência bem sucedida: {json.dumps(supa, ensure_ascii=False)}")
                     result["persistencia_supabase"] = supa
                 except Exception as e:
-                    logger.error(f"[WhatsApp] Erro ao persistir conversa: {str(e)}", exc_info=True)
+                    logger.error(f"[WhatsApp] Falha ao enviar/registrar resposta: {str(e)}", exc_info=True)
+                    result["enviado_via_evolution"] = False
+                    result["evolution_status"] = {"error": str(e)}
                     result["persistencia_supabase"] = {"ok": False, "error": str(e)}
-            except Exception:
-                pass
-
+            except Exception as e:
+                # fecha o try externo (envio/persistência) e marca erro
+                logger.error(f"[WhatsApp] Falha no envio/persistência: {str(e)}", exc_info=True)
+                result["enviado_via_evolution"] = False
+                result["evolution_status"] = {"error": str(e)}
+                if not result.get("persistencia_supabase"):
+                    result["persistencia_supabase"] = {"ok": False, "error": str(e)}
             processed.append(_json_safe(result))
 
         return JSONResponse({"ok": True, "processed": processed, "ignored": ignored}, media_type="application/json; charset=utf-8")
