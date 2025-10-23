@@ -1,10 +1,22 @@
 # função handle_message
 from . import service, catalog, pedidos, atendimento, qualificacao, marketing
 import json
+import logging
 from typing import Dict, Any, List, Tuple
+from dataclasses import dataclass
 from ..integrations.openai_client import generate_response
 from ..integrations.supabase_store import fetch_recent_messages_by_telefone
 from ..integrations.google_knowledge import build_context_for_intent
+
+# Contexto para agentes
+@dataclass
+class AgentContext:
+    message: str
+    phone: str
+    conversation_history: List[Dict[str, Any]]
+    google_context: Dict[str, Any]
+    
+logger = logging.getLogger("3afrios.orchestrator")
 
 
 INTENT_KEYWORDS: Dict[str, List[str]] = {
@@ -41,6 +53,26 @@ def _score_intent(text: str) -> Tuple[str, int, List[str]]:
     best_score = 0
     matched_terms: List[str] = []
 
+    # === NOVO: Detecção inteligente de PEDIDOS ===
+    # Gatilhos fortes de intenção de compra
+    gatilhos_pedido = [
+        'quero', 'vou querer', 'vou levar', 'preciso de', 'gostaria de',
+        'me vende', 'venda', 'comprar', 'fazer pedido', 'encomenda',
+        'solicitar', 'adquirir'
+    ]
+    
+    # Indicadores de quantidade (forte sinal de pedido)
+    indicadores_quantidade = [
+        'quilo', 'kg', 'gramas', 'unidade', 'peça', 'pacote', 'caixa',
+        'um quilo', 'dois quilos', 'meio quilo', '500g', '1kg', '2kg',
+        'uma unidade', 'duas unidades', 'três'
+    ]
+    
+    # Verbos de ação de compra
+    verbos_compra = [
+        'levar', 'pedir', 'encomendar', 'solicitar', 'reservar'
+    ]
+
     # Lista de produtos/termos comuns (sem acento para robustez)
     produtos_genericos = [
         'carne', 'carnes', 'frango', 'peixe', 'peixes', 'porco', 'suino', 'suína', 'bovino',
@@ -54,7 +86,7 @@ def _score_intent(text: str) -> Tuple[str, int, List[str]]:
         'manda o catalogo', 'enviar catalogo', 'ver catalogo', 'catálogo de produtos'
     ]
 
-    # Gatilhos de pergunta sobre produto
+    # Gatilhos de pergunta sobre produto (sem intenção de compra)
     perguntas_produtos = [
         'tem ', 'têm ', 'teria ', 'teriam ',
         'vocês tem', 'vcs tem', 'voces tem',
@@ -64,6 +96,27 @@ def _score_intent(text: str) -> Tuple[str, int, List[str]]:
         'quanto custa', 'qual valor', 'qual preço', 'qual preco'
     ]
 
+    # === PRIORIDADE 1: PEDIDOS (intenção de compra clara) ===
+    # Se tem gatilho de pedido + produto/quantidade = PEDIDO
+    has_pedido_trigger = any(trg in text for trg in gatilhos_pedido)
+    has_quantidade = any(ind in text for ind in indicadores_quantidade)
+    has_verbo_compra = any(verb in text for verb in verbos_compra)
+    has_produto = any(prod in text for prod in produtos_genericos)
+    
+    # Casos de PEDIDO com alta confiança
+    if (has_pedido_trigger and (has_produto or has_quantidade)) or \
+       (has_quantidade and has_produto) or \
+       (has_verbo_compra and has_produto):
+        matched = []
+        if has_pedido_trigger:
+            matched.extend([t for t in gatilhos_pedido if t in text])
+        if has_quantidade:
+            matched.extend([t for t in indicadores_quantidade if t in text])
+        if has_produto:
+            matched.extend([t for t in produtos_genericos if t in text])
+        return 'Pedidos', 5, matched  # 5 => confiança muito alta (1.25, mas limitada a 1.0)
+
+    # === PRIORIDADE 2: CATÁLOGO (consultas) ===
     # 1) Solicitação explícita de catálogo: confiança alta
     if any(trg in text for trg in gatilhos_catalogo):
         matched = [trg for trg in gatilhos_catalogo if trg in text]
@@ -80,7 +133,7 @@ def _score_intent(text: str) -> Tuple[str, int, List[str]]:
         if prod in text:
             return 'Catálogo', 3, [prod]  # 3 => confiança 0.75
 
-    # 4) Heurística padrão por keywords
+    # === PRIORIDADE 3: Heurística padrão por keywords ===
     for intent, keywords in INTENT_KEYWORDS.items():
         score = sum(1 for k in keywords if k.lower() in text)
         if score > best_score:
@@ -88,26 +141,73 @@ def _score_intent(text: str) -> Tuple[str, int, List[str]]:
             best_score = score
             matched_terms = [k for k in keywords if k.lower() in text]
 
-    # 5) Fallback
+    # === FALLBACK ===
     if not best_intent:
         best_intent = 'Atendimento'
 
     return best_intent, best_score, matched_terms
 
-def classify_intent_llm(message: str) -> Dict[str, Any]:
-    if not (message or '').strip():
-        return {}
-    prompt = (
-        'Você é o orquestrador da 3A Frios. Classifique a intenção do usuário em uma das opções: '
-        'Catálogo, Pedidos, Atendimento, Qualificação, Marketing. Responda em JSON, com os campos '
-        'intent (string), confidence (0-1) e reason (string).'
-    )
-    raw = generate_response(prompt, message or '')
+async def classify_intent_llm(self, context: AgentContext) -> str:
+    """
+    Classificação inteligente com OpenAI usando contexto conversacional
+    """
+    message = context.message
+    
+    if not message or not message.strip():
+        return 'Atendimento'
+    
+    # Construir contexto da conversa para a OpenAI
+    conversation_context = ""
+    if context.conversation_history:
+        recent_history = context.conversation_history[-4:]  # Últimas 4 interações
+        conversation_context = "\n".join([
+            f"Cliente: {msg.get('mensagem_cliente', '')}" if msg.get('mensagem_cliente') 
+            else f"Bot: {msg.get('resposta_bot', '')}"
+            for msg in recent_history
+        ])
+        conversation_context = f"\nContexto da conversa:\n{conversation_context}\n"
+    
+    prompt = f"""Você é o orquestrador inteligente da 3A Frios, empresa de carnes, frios e derivados.
+
+AGENTES DISPONÍVEIS:
+- Catálogo: Consultas sobre produtos, preços, disponibilidade ("tem carne?", "quais queijos?", "catalogo")
+- Pedidos: Intenção clara de compra/solicitação ("quero 1kg", "vou levar", "me vende", "fazer pedido")
+- Atendimento: Saudações, dúvidas gerais, reclamações, informações da empresa
+- Qualificação: Interesse comercial, parcerias, revenda, representação
+- Marketing: Promoções, ofertas, descontos, campanhas
+
+REGRAS DE CLASSIFICAÇÃO:
+1. PEDIDOS tem prioridade quando há verbos de ação + produto/quantidade
+2. CATÁLOGO para perguntas sobre produtos sem intenção de compra imediata
+3. ATENDIMENTO para conversas gerais, problemas, informações
+4. Use o contexto da conversa para entender a continuidade
+
+{conversation_context}
+
+Mensagem atual: "{message}"
+
+Responda APENAS com o nome do agente: Catálogo, Pedidos, Atendimento, Qualificação ou Marketing."""
+
     try:
-        data = json.loads(raw)
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+        from ..integrations.openai_client import generate_response
+        response = generate_response(prompt, message)
+        
+        # Limpar resposta e validar
+        intent = response.strip().replace('"', '').replace("'", '')
+        valid_intents = ['Catálogo', 'Pedidos', 'Atendimento', 'Qualificação', 'Marketing']
+        
+        if intent in valid_intents:
+            return intent
+        else:
+            # Fallback: tentar extrair da resposta
+            for valid_intent in valid_intents:
+                if valid_intent.lower() in response.lower():
+                    return valid_intent
+            return 'Atendimento'  # Fallback padrão
+            
+    except Exception as e:
+        logger.error(f"[CLASSIFY_LLM] Erro na OpenAI: {e}")
+        return 'Atendimento'
 
 # Substitui a versão anterior para retornar metadados ricos
 def route_to_agent(message: str) -> Dict[str, Any]:
@@ -115,16 +215,89 @@ def route_to_agent(message: str) -> Dict[str, Any]:
     intent, score, terms = _score_intent(text)
     confidence = min(1.0, 0.25 * score)  # 0, 0.25, 0.5, 0.75, 1.0
     if score == 0:
-        llm = classify_intent_llm(message)
-        llm_intent = llm.get('intent')
-        if llm_intent in INTENT_KEYWORDS:
-            intent = llm_intent
-            confidence = float(llm.get('confidence', 0.5))
+        # Fallback simples sem async por compatibilidade
+        llm_intent = 'Atendimento'  # Default quando heurística falha
+        confidence = 0.5
+        intent = llm_intent
     return {
         'intent': intent,
         'confidence': confidence,
         'matched_terms': terms,
     }
+
+
+class SmartOrchestrator:
+    """
+    Orquestrador inteligente com roteamento híbrido
+    """
+    
+    async def route_to_agent(self, context: AgentContext) -> Tuple[str, str, bool]:
+        """
+        Roteamento híbrido melhorado:
+        1. Heurística inteligente com priorização de intenções
+        2. OpenAI para casos ambíguos ou complexos  
+        3. Contexto conversacional
+        """
+        current_message = context.message.strip()
+        
+        # === STEP 1: Heurística inteligente ===
+        intent, score, matched_terms = _score_intent(current_message)
+        confidence = min(score * 0.25, 1.0)  # Normaliza para [0, 1]
+        
+        logger.info(f"[ROTEAMENTO] Heurística: '{intent}' (score={score}, conf={confidence:.2f}) | termos: {matched_terms}")
+        
+        # === STEP 2: Critério para usar OpenAI ===
+        # Use OpenAI quando:
+        # - Confiança baixa (< 0.5)
+        # - Mensagem complexa/longa (> 50 chars com múltiplas palavras)
+        # - Contexto de conversa existente
+        # - Termos ambíguos detectados
+        
+        usar_openai = False
+        razao_openai = ""
+        
+        if confidence < 0.5:
+            usar_openai = True
+            razao_openai = f"baixa confiança ({confidence:.2f})"
+        
+        elif len(current_message) > 50 and len(current_message.split()) > 8:
+            usar_openai = True
+            razao_openai = "mensagem complexa/longa"
+        
+        elif len(context.conversation_history) > 2:
+            # Se há histórico, pode haver contexto que muda o sentido
+            usar_openai = True
+            razao_openai = "contexto conversacional"
+        
+        # Casos especiais onde sempre usar heurística (alta confiança)
+        if confidence >= 0.9:
+            usar_openai = False
+            razao_openai = "confiança muito alta - heurística suficiente"
+        
+        # === STEP 3: Execução do roteamento ===
+        if usar_openai:
+            logger.info(f"[ROTEAMENTO] Usando OpenAI por: {razao_openai}")
+            try:
+                llm_intent = await self.classify_intent_llm(context)
+                
+                # Combinar insights: se LLM discorda da heurística em casos limítrofes
+                if confidence < 0.6 and llm_intent != intent:
+                    logger.info(f"[ROTEAMENTO] LLM discorda: '{llm_intent}' vs heurística '{intent}' - usando LLM")
+                    return llm_intent, f"🤖 Análise AI: {razao_openai}", True
+                elif confidence >= 0.6:
+                    logger.info(f"[ROTEAMENTO] LLM concorda ou heurística confiável - usando heurística")
+                    return intent, f"🎯 Roteamento inteligente: {', '.join(matched_terms)}", True
+                else:
+                    return llm_intent, f"🤖 Análise AI: {razao_openai}", True
+                    
+            except Exception as e:
+                logger.error(f"[ROTEAMENTO] Erro na OpenAI: {e}")
+                # Fallback para heurística
+                return intent, f"⚡ Roteamento rápido (AI indisponível): {', '.join(matched_terms)}", True
+        
+        else:
+            logger.info(f"[ROTEAMENTO] Usando heurística: {razao_openai}")
+            return intent, f"🎯 Roteamento inteligente: {', '.join(matched_terms)}", True
 
 # Atualiza para usar roteamento com confiança, override e normalização de telefone
 async def handle_message(payload: dict) -> dict:
