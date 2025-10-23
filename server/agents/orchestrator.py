@@ -183,7 +183,10 @@ async def handle_message(payload: dict) -> dict:
         if last_agents:
             from collections import Counter
             top_agent, top_count = Counter(last_agents).most_common(1)[0]
-            if top_count >= 2 and routing.get('confidence', 0.0) < 0.5 and top_agent in INTENT_KEYWORDS:
+            # Não sobrescreve quando há sinais fortes de Catálogo no texto atual
+            text_lower = (mensagem or '').lower()
+            strong_product_signal = (routing.get('intent') == 'Catálogo') or any(k in text_lower for k in ['catálogo','catalogo','produto','produtos','preço','preco','valor','lista','cardápio','cardapio'])
+            if top_count >= 2 and routing.get('confidence', 0.0) < 0.5 and top_agent in INTENT_KEYWORDS and not strong_product_signal:
                 agente_responsavel = top_agent
                 routing['confidence'] = max(routing.get('confidence', 0.0), 0.6)
     except Exception:
