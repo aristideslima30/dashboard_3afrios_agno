@@ -302,13 +302,22 @@ def fetch_sheet_catalog(sheet_id: str | None = None, value_range: str | None = N
 
 
 def build_context_for_intent(intent: str) -> Dict[str, Any]:
+    import logging
+    logger = logging.getLogger("3afrios.backend")
+    
+    logger.info(f"[GoogleKnowledge] Construindo contexto para intent: {intent}")
+    
     identity_text = fetch_doc_text(GOOGLE_DOC_ID, max_chars=2000) if GOOGLE_DOC_ID else ""
     # Usa range/aba configurável e captura itens estruturados
     catalog = (
         fetch_sheet_catalog(GOOGLE_SHEET_ID, value_range=GOOGLE_SHEET_RANGE, max_items=50)
         if GOOGLE_SHEET_ID else {"items": [], "headers": [], "preview": ""}
     )
-
+    
+    logger.info(f"[GoogleKnowledge] Catalog fetched - items: {len(catalog.get('items', []))}, preview: {len(catalog.get('preview', ''))}")
+    if catalog.get('items'):
+        logger.info(f"[GoogleKnowledge] Primeiro item: {catalog['items'][0]}")
+    
     ctx: Dict[str, Any] = {
         "identity_text": identity_text,
         "catalog_preview": catalog.get("preview", ""),
@@ -318,17 +327,23 @@ def build_context_for_intent(intent: str) -> Dict[str, Any]:
 
     # Ajuste simples por intenção
     if intent in ("Catálogo", "Pedidos"):
-        return {
+        result = {
             "identity_text": identity_text[:800],
             "catalog_preview": catalog.get("preview", ""),
             "catalog_items": catalog.get("items", [])[:20],
             "catalog_headers": catalog.get("headers", []),
         }
+        logger.info(f"[GoogleKnowledge] Contexto para {intent} - items: {len(result['catalog_items'])}")
+        return result
     if intent == "Atendimento":
-        return {
+        result = {
             "identity_text": identity_text,
             "catalog_preview": catalog.get("preview", "")[:500],
             "catalog_items": catalog.get("items", [])[:10],
             "catalog_headers": catalog.get("headers", []),
         }
+        logger.info(f"[GoogleKnowledge] Contexto para {intent} - items: {len(result['catalog_items'])}")
+        return result
+    
+    logger.info(f"[GoogleKnowledge] Contexto padrão para {intent} - items: {len(ctx['catalog_items'])}")
     return ctx

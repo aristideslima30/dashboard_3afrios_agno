@@ -32,9 +32,15 @@ def _format_item(it: Dict[str, str]) -> str:
     return desc or ""
 
 def respond(message: str, context: dict | None = None):
+    import logging
+    logger = logging.getLogger("3afrios.backend")
+    
     text = (message or '').lower()
     resposta = 'Sou o agente de Catálogo. Envio catálogo, detalhes de produtos e disponibilidade.'
     acao_especial = None
+    
+    logger.info(f"[Catalog] Processando mensagem: '{message}'")
+    logger.info(f"[Catalog] Contexto recebido - keys: {list((context or {}).keys())}")
 
     # Nova detecção e resposta determinística com itens estruturados
     is_specific = any(k in text for k in ['tem', 'têm', 'teria', 'vende', 'quanto custa', 'preço de', 'valor do', 'qual valor', 'qual preço', 'qual preco'])
@@ -44,7 +50,12 @@ def respond(message: str, context: dict | None = None):
 
     ctx = context or {}
     items: List[Dict[str, str]] = ctx.get('catalog_items') or []
+    
+    logger.info(f"[Catalog] Items estruturados: {len(items)} itens")
+    logger.info(f"[Catalog] is_catalog_request: {is_catalog_request}, is_specific: {is_specific}")
+    
     if items:
+        logger.info(f"[Catalog] USANDO RESPOSTA DETERMINÍSTICA - {len(items)} itens disponíveis")
         # tokens relevantes da mensagem para filtro simples
         raw_tokens = [t for t in _norm(message).split() if len(t) >= 3]
         stop = set(['que','qual','quais','quanto','custa','tem','têm','teria','vende','vocês','voces','vcs','de','do','da','dos','das','o','a','os','as','um','uma','me','manda','mandar','enviar','ver','lista','catalogo','catálogo','preco','preço','valor','por','kg','quilo'])
@@ -75,11 +86,14 @@ def respond(message: str, context: dict | None = None):
                 resposta = 'Aqui está nosso catálogo (amostra):\n' + '\n'.join(linhas)
             else:
                 resposta = 'Aqui está nosso catálogo atualizado com produtos e preços.'
+        
+        logger.info(f"[Catalog] Resposta determinística gerada: {len(resposta)} chars")
         return {
             'resposta': resposta,
             'acao_especial': acao_especial,
         }
-
+    
+    logger.info(f"[Catalog] FALLBACK para LLM - sem itens estruturados")
     prev = (context or {}).get('catalog_preview') or ''
     if prev:
         if is_specific:
