@@ -14,12 +14,14 @@ load_dotenv()
 from server.config import (
     GOOGLE_OAUTH_CLIENT_ID,
     GOOGLE_OAUTH_CLIENT_SECRET,
-    GOOGLE_OAUTH_AUTH_URI,
     GOOGLE_OAUTH_TOKEN_URI,
-    GOOGLE_OAUTH_REDIRECT_URI,
     GOOGLE_SCOPES,
     GOOGLE_DRIVE_TOKEN_JSON,
 )
+
+# Valores adicionais lidos diretamente do ambiente (não presentes em server.config)
+GOOGLE_OAUTH_AUTH_URI = os.getenv("GOOGLE_OAUTH_AUTH_URI", "https://accounts.google.com/o/oauth2/auth")
+GOOGLE_OAUTH_REDIRECT_URI = os.getenv("GOOGLE_OAUTH_REDIRECT_URI", "http://localhost:8787/")
 
 DEFAULT_SCOPES = [
     "https://www.googleapis.com/auth/documents.readonly",
