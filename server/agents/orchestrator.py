@@ -40,53 +40,58 @@ def _score_intent(text: str) -> Tuple[str, int, List[str]]:
     best_intent = None
     best_score = 0
     matched_terms: List[str] = []
-    
-    # Lista de produtos genéricos para detectar perguntas sobre produtos
+
+    # Lista de produtos/termos comuns (sem acento para robustez)
     produtos_genericos = [
-        'carne', 'carnes', 'frango', 'peixe', 'peixes', 'porco',
-        'boi', 'galinha', 'aves', 'frios', 'queijo', 'queijos',
-        'presunto', 'mortadela', 'salame', 'linguiça', 'linguica'
+        'carne', 'carnes', 'frango', 'peixe', 'peixes', 'porco', 'suino', 'suína', 'bovino',
+        'boi', 'galinha', 'aves', 'frios', 'queijo', 'queijos', 'presunto', 'mortadela',
+        'salame', 'linguica', 'linguiça', 'salsicha', 'calabresa', 'pernil', 'file', 'filé'
     ]
-    
-    # Primeiro verifica perguntas sobre produtos específicos
+
+    # Gatilhos de pedido de catálogo/lista
+    gatilhos_catalogo = [
+        'catalogo', 'catálogo', 'lista de produtos', 'me envia o catalogo', 'me mande o catalogo',
+        'manda o catalogo', 'enviar catalogo', 'ver catalogo', 'catálogo de produtos'
+    ]
+
+    # Gatilhos de pergunta sobre produto
     perguntas_produtos = [
         'tem ', 'têm ', 'teria ', 'teriam ',
         'vocês tem', 'vcs tem', 'voces tem',
         'vocês têm', 'vcs têm', 'voces têm',
         'quais tipos', 'que tipos',
         'vendem', 'vende', 'trabalha com',
-        'quanto custa', 'qual valor', 'qual preço'
+        'quanto custa', 'qual valor', 'qual preço', 'qual preco'
     ]
-    
-    # Se for pergunta sobre produto, já define como Catálogo
-    for p in perguntas_produtos:
-        if p in text:
-            for prod in produtos_genericos:
-                if prod in text:
-                    return 'Catálogo', 1, [p, prod]
-    
-    # Tenta match com palavras-chave normais
+
+    # 1) Solicitação explícita de catálogo: confiança alta
+    if any(trg in text for trg in gatilhos_catalogo):
+        matched = [trg for trg in gatilhos_catalogo if trg in text]
+        return 'Catálogo', 4, matched  # 4 => confiança 1.0 (0.25*4)
+
+    # 2) Pergunta de produto + algum termo de produto: confiança alta
+    if any(p in text for p in perguntas_produtos):
+        for prod in produtos_genericos:
+            if prod in text:
+                return 'Catálogo', 4, ['produto', prod]
+
+    # 3) Apenas menciona produtos (sem pergunta): confiança média
+    for prod in produtos_genericos:
+        if prod in text:
+            return 'Catálogo', 3, [prod]  # 3 => confiança 0.75
+
+    # 4) Heurística padrão por keywords
     for intent, keywords in INTENT_KEYWORDS.items():
         score = sum(1 for k in keywords if k.lower() in text)
         if score > best_score:
             best_intent = intent
             best_score = score
             matched_terms = [k for k in keywords if k.lower() in text]
-    
-    # Se não encontrou nada específico mas menciona algum produto, vai pro Catálogo
-    if best_score == 0:
-        for prod in produtos_genericos:
-            if prod in text:
-                return 'Catálogo', 0.8, [prod]
-        
-        # Outras perguntas genéricas sobre produtos
-        if any(p.strip() in text for p in perguntas_produtos):
-            return 'Catálogo', 0.6, []
-    
-    # Se ainda não encontrou nada, usa Atendimento como fallback
+
+    # 5) Fallback
     if not best_intent:
         best_intent = 'Atendimento'
-        
+
     return best_intent, best_score, matched_terms
 
 def classify_intent_llm(message: str) -> Dict[str, Any]:
