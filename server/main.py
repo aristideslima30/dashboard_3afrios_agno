@@ -600,3 +600,27 @@ def _check_global_dedup(telefone: str, texto: str, event_id: str = "") -> bool:
         return False
     except Exception:
         return False
+
+
+@app.get("/debug/google-sheets")
+async def debug_google_sheets():
+    """Endpoint para testar a integração com Google Sheets"""
+    try:
+        from .integrations.google_knowledge import fetch_sheet_catalog, _load_credentials
+        from .config import GOOGLE_SHEET_ID
+        
+        # Testa credenciais
+        creds = _load_credentials()
+        if not creds:
+            return {"error": "Credenciais não carregadas", "sheets_data": None}
+        
+        # Testa planilha
+        result = fetch_sheet_catalog(GOOGLE_SHEET_ID, max_items=3)
+        return {
+            "success": True,
+            "items_count": len(result.get("items", [])),
+            "preview_length": len(result.get("preview", "")),
+            "sample_items": result.get("items", [])[:2]  # apenas 2 para não expor tudo
+        }
+    except Exception as e:
+        return {"error": str(e), "sheets_data": None}
