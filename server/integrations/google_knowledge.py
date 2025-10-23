@@ -34,12 +34,27 @@ def _load_credentials() -> Credentials | None:
     if not (GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET and GOOGLE_OAUTH_TOKEN_URI):
         return None
 
+    # Primeiro tenta ler do arquivo
+    token = None
     token_path = GOOGLE_DRIVE_TOKEN_JSON
-    if not os.path.exists(token_path):
+    if os.path.exists(token_path):
+        try:
+            with open(token_path, "r", encoding="utf-8") as f:
+                token = json.load(f)
+        except Exception:
+            pass
+    
+    # Se não encontrou arquivo, tenta ler da variável de ambiente
+    if not token:
+        token_json = os.getenv("GOOGLE_DRIVE_TOKEN")
+        if token_json:
+            try:
+                token = json.loads(token_json)
+            except Exception:
+                pass
+    
+    if not token:
         return None
-
-    with open(token_path, "r", encoding="utf-8") as f:
-        token = json.load(f)
 
     creds = Credentials(
         token=token.get("access_token"),
@@ -268,18 +283,26 @@ def fetch_sheet_catalog(sheet_id: str | None = None, value_range: str | None = N
     headers, rows = _to_dicts(res.get("values", []))
     items = rows[:max_items]
 
-    # Detecta nome pela lista de chaves comuns; fallback para primeira coluna
-    name_keys = ["produto", "nome", "item", "descrição", "descricao"]
-    col_name = next((h for h in headers if h.lower() in name_keys), headers[0] if headers else "")
-    # Detecta preço
-    price_keys = ["preço", "preco", "valor", "price"]
-    col_price = next((h for h in headers if h.lower() in price_keys), "")
+    # Detecta as colunas específicas DESCRICAO e PRECO
+    col_desc = next((h for h in headers if h.lower() == "descricao"), "")
+    col_price = next((h for h in headers if h.lower() == "preco"), "")
+    
+    # Fallback para outras possíveis nomenclaturas se não encontrar exatamente DESCRICAO/PRECO
+    if not col_desc:
+        desc_keys = ["descricao", "descrição", "produto", "nome", "item"]
+        col_desc = next((h for h in headers if h.lower() in desc_keys), headers[0] if headers else "")
+    if not col_price:
+        price_keys = ["preco", "preço", "valor", "price"]
+        col_price = next((h for h in headers if h.lower() in price_keys), "")
 
     preview_lines = []
     for it in items:
-        n = it.get(str(col_name).lower(), "")
-        p = it.get(str(col_price).lower(), "")
-        preview_lines.append(f"{n} — R$ {p}" if p else f"{n}")
+        desc = it.get(str(col_desc).lower(), "")
+        price = it.get(str(col_price).lower(), "")
+        if desc and price:
+            preview_lines.append(f"{desc} — R$ {price}")
+        elif desc:
+            preview_lines.append(desc)
     return {"items": items, "headers": headers, "preview": "\n".join(preview_lines)}
 
 

@@ -11,7 +11,10 @@ INTENT_KEYWORDS: Dict[str, List[str]] = {
     'Catálogo': [
         'catálogo', 'catalogo', 'produto', 'produtos', 'preço', 'disponibilidade',
         'tem', 'possui', 'vende', 'quanto', 'custa', 'valor', 'cardápio', 'cardapio',
-        'menu', 'lista', 'oferece', 'disponível', 'disponivel'
+        'menu', 'lista', 'oferece', 'disponível', 'disponivel',
+        'carne', 'carnes', 'frango', 'peixe', 'peixes', 'porco', 'boi',
+        'galinha', 'aves', 'frios', 'queijo', 'queijos', 'presunto',
+        'mortadela', 'salame', 'linguiça', 'linguica'
     ],
     'Pedidos': [
         'pedido', 'comprar', 'finalizar', 'ordem', 'adicionar', 'carrinho',
@@ -33,12 +36,36 @@ INTENT_KEYWORDS: Dict[str, List[str]] = {
 }
 
 def _score_intent(text: str) -> Tuple[str, int, List[str]]:
-    text = text.lower()
+    text = text.lower().strip()
     best_intent = None
     best_score = 0
     matched_terms: List[str] = []
     
-    # Primeiro tenta match exato com palavras-chave
+    # Lista de produtos genéricos para detectar perguntas sobre produtos
+    produtos_genericos = [
+        'carne', 'carnes', 'frango', 'peixe', 'peixes', 'porco',
+        'boi', 'galinha', 'aves', 'frios', 'queijo', 'queijos',
+        'presunto', 'mortadela', 'salame', 'linguiça', 'linguica'
+    ]
+    
+    # Primeiro verifica perguntas sobre produtos específicos
+    perguntas_produtos = [
+        'tem ', 'têm ', 'teria ', 'teriam ',
+        'vocês tem', 'vcs tem', 'voces tem',
+        'vocês têm', 'vcs têm', 'voces têm',
+        'quais tipos', 'que tipos',
+        'vendem', 'vende', 'trabalha com',
+        'quanto custa', 'qual valor', 'qual preço'
+    ]
+    
+    # Se for pergunta sobre produto, já define como Catálogo
+    for p in perguntas_produtos:
+        if p in text:
+            for prod in produtos_genericos:
+                if prod in text:
+                    return 'Catálogo', 1, [p, prod]
+    
+    # Tenta match com palavras-chave normais
     for intent, keywords in INTENT_KEYWORDS.items():
         score = sum(1 for k in keywords if k.lower() in text)
         if score > best_score:
@@ -46,16 +73,15 @@ def _score_intent(text: str) -> Tuple[str, int, List[str]]:
             best_score = score
             matched_terms = [k for k in keywords if k.lower() in text]
     
-    # Se não encontrou nenhum match, tenta análise semântica simples
+    # Se não encontrou nada específico mas menciona algum produto, vai pro Catálogo
     if best_score == 0:
-        # Perguntas sobre produtos/disponibilidade
-        if any(p in text for p in ['tem ', 'têm ', 'teria ', 'teriam ', 'vocês tem ', 'vcs tem ']):
-            best_intent = 'Catálogo'
-            best_score = 1
-        # Perguntas sobre compras
-        elif any(p in text for p in ['quero ', 'queria ', 'gostaria ', 'preciso ']):
-            best_intent = 'Pedidos'
-            best_score = 1
+        for prod in produtos_genericos:
+            if prod in text:
+                return 'Catálogo', 0.8, [prod]
+        
+        # Outras perguntas genéricas sobre produtos
+        if any(p.strip() in text for p in perguntas_produtos):
+            return 'Catálogo', 0.6, []
     
     # Se ainda não encontrou nada, usa Atendimento como fallback
     if not best_intent:
