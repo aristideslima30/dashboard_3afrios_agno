@@ -283,17 +283,12 @@ def fetch_sheet_catalog(sheet_id: str | None = None, value_range: str | None = N
     headers, rows = _to_dicts(res.get("values", []))
     items = rows[:max_items]
 
-    # Detecta as colunas específicas DESCRICAO e PRECO
-    col_desc = next((h for h in headers if h.lower() == "descricao"), "")
-    col_price = next((h for h in headers if h.lower() == "preco"), "")
+    # Detecta as colunas específicas DESCRICAO e PRECO (case-insensitive)
+    desc_keys = ["descricao", "descrição", "produto", "nome", "item", "description"]
+    price_keys = ["preco", "preço", "valor", "price"]
     
-    # Fallback para outras possíveis nomenclaturas se não encontrar exatamente DESCRICAO/PRECO
-    if not col_desc:
-        desc_keys = ["descricao", "descrição", "produto", "nome", "item"]
-        col_desc = next((h for h in headers if h.lower() in desc_keys), headers[0] if headers else "")
-    if not col_price:
-        price_keys = ["preco", "preço", "valor", "price"]
-        col_price = next((h for h in headers if h.lower() in price_keys), "")
+    col_desc = next((h for h in headers if h.lower() in desc_keys), headers[0] if headers else "")
+    col_price = next((h for h in headers if h.lower() in price_keys), "")
 
     preview_lines = []
     for it in items:

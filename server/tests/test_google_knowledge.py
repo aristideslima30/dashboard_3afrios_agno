@@ -1,11 +1,14 @@
 import asyncio
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
 
-def test_google_knowledge():
+from integrations.google_knowledge import fetch_doc_text, fetch_sheet_catalog, build_context_for_intent
+from config import GOOGLE_DOC_ID, GOOGLE_SHEET_ID
+
+async def test_google_knowledge():
     print("\n=== Testando integração com Google Knowledge ===\n")
     
-    from server.integrations.google_knowledge import fetch_doc_text, fetch_sheet_catalog, build_context_for_intent
-    from server.config import GOOGLE_DOC_ID, GOOGLE_SHEET_ID
-
     # Testa busca no documento
     print("1. Buscando informações do Google Doc...")
     doc_text = fetch_doc_text(GOOGLE_DOC_ID)

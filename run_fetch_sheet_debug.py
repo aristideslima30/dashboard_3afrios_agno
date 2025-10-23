@@ -1,10 +1,6 @@
 import os, json, traceback
 from datetime import datetime
 
-# Carrega variáveis do .env da raiz
-from dotenv import load_dotenv
-load_dotenv()
-
 from server.integrations import google_knowledge
 from server.config import GOOGLE_DRIVE_TOKEN_JSON, GOOGLE_SHEET_ID
 

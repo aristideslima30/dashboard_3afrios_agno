@@ -1,6 +1,3 @@
-from dotenv import load_dotenv
-load_dotenv()
-
 from server.integrations.google_knowledge import fetch_sheet_catalog
 from server.config import GOOGLE_SHEET_ID, GOOGLE_SHEET_RANGE
 import json
