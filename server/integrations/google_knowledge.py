@@ -29,61 +29,87 @@ from ..config import (
 
 
 def _load_credentials() -> Credentials | None:
+    import logging
+    logger = logging.getLogger("3afrios.backend")
+    
     if not GOOGLE_ENABLED:
+        logger.warning("[GoogleCreds] Google integração desabilitada")
         return None
     if not (GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET and GOOGLE_OAUTH_TOKEN_URI):
+        logger.error("[GoogleCreds] Credenciais OAuth incompletas")
         return None
 
     # Primeiro tenta ler do arquivo
     token = None
     token_path = GOOGLE_DRIVE_TOKEN_JSON
+    logger.info(f"[GoogleCreds] Tentando ler token do arquivo: {token_path}")
+    
     if os.path.exists(token_path):
         try:
             with open(token_path, "r", encoding="utf-8") as f:
                 token = json.load(f)
-        except Exception:
-            pass
+            logger.info("[GoogleCreds] Token carregado do arquivo com sucesso")
+        except Exception as e:
+            logger.error(f"[GoogleCreds] Erro ao ler arquivo de token: {e}")
+    else:
+        logger.warning(f"[GoogleCreds] Arquivo de token não encontrado: {token_path}")
     
     # Se não encontrou arquivo, tenta ler da variável de ambiente
     if not token:
+        logger.info("[GoogleCreds] Tentando ler token da variável de ambiente")
         token_json = os.getenv("GOOGLE_DRIVE_TOKEN")
         if token_json:
             try:
                 token = json.loads(token_json)
-            except Exception:
-                pass
+                logger.info("[GoogleCreds] Token carregado da variável de ambiente com sucesso")
+            except Exception as e:
+                logger.error(f"[GoogleCreds] Erro ao parsear token da env var: {e}")
+        else:
+            logger.error("[GoogleCreds] Variável GOOGLE_DRIVE_TOKEN não encontrada")
     
     if not token:
+        logger.error("[GoogleCreds] Nenhum token disponível")
         return None
 
-    creds = Credentials(
-        token=token.get("access_token"),
-        refresh_token=token.get("refresh_token"),
-        token_uri=GOOGLE_OAUTH_TOKEN_URI,
-        client_id=GOOGLE_OAUTH_CLIENT_ID,
-        client_secret=GOOGLE_OAUTH_CLIENT_SECRET,
-        scopes=GOOGLE_SCOPES or [
-            "https://www.googleapis.com/auth/documents.readonly",
-            "https://www.googleapis.com/auth/spreadsheets.readonly",
-            "https://www.googleapis.com/auth/drive.readonly",
-        ],
-    )
-
-    if creds and creds.expired and creds.refresh_token:
-        try:
-            creds.refresh(Request())
-            # Opcional: persiste novo access_token no mesmo arquivo
-            with open(token_path, "w", encoding="utf-8") as f:
-                json.dump({
-                    "access_token": creds.token,
-                    "refresh_token": token.get("refresh_token"),
-                    "scope": " ".join(creds.scopes or []),
-                    "token_type": "Bearer",
-                }, f)
-        except Exception:
-            pass
-
-    return creds
+    try:
+        creds = Credentials(
+            token=token.get("access_token"),
+            refresh_token=token.get("refresh_token"),
+            token_uri=GOOGLE_OAUTH_TOKEN_URI,
+            client_id=GOOGLE_OAUTH_CLIENT_ID,
+            client_secret=GOOGLE_OAUTH_CLIENT_SECRET,
+            scopes=GOOGLE_SCOPES or [
+                "https://www.googleapis.com/auth/documents.readonly",
+                "https://www.googleapis.com/auth/spreadsheets.readonly",
+                "https://www.googleapis.com/auth/drive.readonly",
+            ],
+        )
+        logger.info("[GoogleCreds] Credenciais criadas com sucesso")
+        
+        if creds and creds.expired and creds.refresh_token:
+            logger.info("[GoogleCreds] Token expirado, tentando refresh")
+            try:
+                creds.refresh(Request())
+                logger.info("[GoogleCreds] Token refreshado com sucesso")
+                # Opcional: persiste novo access_token no mesmo arquivo
+                if os.path.exists(token_path):
+                    with open(token_path, "w", encoding="utf-8") as f:
+                        json.dump({
+                            "access_token": creds.token,
+                            "refresh_token": token.get("refresh_token"),
+                            "scope": " ".join(creds.scopes or []),
+                            "token_type": "Bearer",
+                        }, f)
+                    logger.info("[GoogleCreds] Token atualizado salvo no arquivo")
+            except Exception as e:
+                logger.error(f"[GoogleCreds] Erro ao refreshar token: {e}")
+                return None
+                
+        return creds
+        
+    except Exception as e:
+        logger.error(f"[GoogleCreds] Erro ao criar credenciais: {e}")
+        return None
 
 
 def fetch_doc_text(doc_id: str | None = None, max_chars: int = 4000) -> str:
@@ -124,12 +150,28 @@ from ..config import (
 )
 
 def fetch_sheet_catalog(sheet_id: str | None = None, value_range: str | None = None, max_items: int = 15) -> Dict[str, Any]:
+    import logging
+    logger = logging.getLogger("3afrios.backend")
+    
     if not sheet_id:
+        logger.warning("[GoogleSheets] Nenhum SHEET_ID configurado")
         return {"items": [], "headers": [], "preview": ""}
+    
+    logger.info(f"[GoogleSheets] Tentando acessar planilha: {sheet_id}")
+    
     creds = _load_credentials()
     if not creds:
+        logger.error("[GoogleSheets] Falha ao carregar credenciais")
         return {"items": [], "headers": [], "preview": ""}
-    service = build("sheets", "v4", credentials=creds)
+        
+    logger.info("[GoogleSheets] Credenciais carregadas com sucesso")
+    
+    try:
+        service = build("sheets", "v4", credentials=creds)
+        logger.info("[GoogleSheets] Serviço Google Sheets inicializado")
+    except Exception as e:
+        logger.error(f"[GoogleSheets] Erro ao inicializar serviço: {e}")
+        return {"items": [], "headers": [], "preview": ""}
 
     rng = (value_range or GOOGLE_SHEET_RANGE or "A1:Z1000").strip()
 
