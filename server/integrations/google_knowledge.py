@@ -303,14 +303,32 @@ def fetch_sheet_catalog(sheet_id: str | None = None, value_range: str | None = N
 
 def build_context_for_intent(intent: str) -> Dict[str, Any]:
     identity_text = fetch_doc_text(GOOGLE_DOC_ID, max_chars=2000) if GOOGLE_DOC_ID else ""
-    # Usa range/aba configurável
-    catalog = fetch_sheet_catalog(GOOGLE_SHEET_ID, value_range=GOOGLE_SHEET_RANGE, max_items=12) if GOOGLE_SHEET_ID else {"preview": ""}
+    # Usa range/aba configurável e captura itens estruturados
+    catalog = (
+        fetch_sheet_catalog(GOOGLE_SHEET_ID, value_range=GOOGLE_SHEET_RANGE, max_items=50)
+        if GOOGLE_SHEET_ID else {"items": [], "headers": [], "preview": ""}
+    )
 
-    ctx: Dict[str, Any] = {"identity_text": identity_text, "catalog_preview": catalog.get("preview", "")}
+    ctx: Dict[str, Any] = {
+        "identity_text": identity_text,
+        "catalog_preview": catalog.get("preview", ""),
+        "catalog_items": catalog.get("items", []),
+        "catalog_headers": catalog.get("headers", []),
+    }
 
     # Ajuste simples por intenção
     if intent in ("Catálogo", "Pedidos"):
-        return {"identity_text": identity_text[:800], "catalog_preview": catalog.get("preview", "")}
+        return {
+            "identity_text": identity_text[:800],
+            "catalog_preview": catalog.get("preview", ""),
+            "catalog_items": catalog.get("items", [])[:20],
+            "catalog_headers": catalog.get("headers", []),
+        }
     if intent == "Atendimento":
-        return {"identity_text": identity_text, "catalog_preview": catalog.get("preview", "")[:500]}
+        return {
+            "identity_text": identity_text,
+            "catalog_preview": catalog.get("preview", "")[:500],
+            "catalog_items": catalog.get("items", [])[:10],
+            "catalog_headers": catalog.get("headers", []),
+        }
     return ctx
