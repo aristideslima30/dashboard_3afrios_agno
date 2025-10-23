@@ -31,46 +31,6 @@ def _format_item(it: Dict[str, str]) -> str:
         return f"{desc} — R$ {price}"
     return desc or ""
 
-
-def _get_product_keywords(message: str) -> List[str]:
-    """Extrai palavras-chave expandidas com sinônimos e categorias"""
-    # Remove pontuação e normaliza
-    clean_msg = _norm(message.replace('?', '').replace('!', '').replace('.', '').replace(',', ''))
-    raw_tokens = [t for t in clean_msg.split() if len(t) >= 3]
-    stop = set(['que','qual','quais','quanto','custa','tem','têm','teria','vende','vocês','voces','vcs','de','do','da','dos','das','o','a','os','as','um','uma','me','manda','mandar','enviar','ver','lista','catalogo','catálogo','preco','preço','valor','por','kg','quilo'])
-    keywords = [t for t in raw_tokens if t not in stop]
-    
-    # Expande com sinônimos e categorias
-    expanded = set(keywords)
-    
-    # Mapeamento de categorias
-    categorias = {
-        'porco': ['calabresa', 'linguica', 'linguiça', 'pernil', 'costela', 'lombo', 'bacon'],
-        'suino': ['calabresa', 'linguica', 'linguiça', 'pernil', 'costela', 'lombo', 'bacon'],
-        'suína': ['calabresa', 'linguica', 'linguiça', 'pernil', 'costela', 'lombo', 'bacon'],
-        'gado': ['picanha', 'alcatra', 'maminha', 'contrafile', 'coxao', 'patinho', 'acem'],
-        'bovino': ['picanha', 'alcatra', 'maminha', 'contrafile', 'coxao', 'patinho', 'acem'],
-        'boi': ['picanha', 'alcatra', 'maminha', 'contrafile', 'coxao', 'patinho', 'acem'],
-        'frango': ['coxa', 'sobrecoxa', 'peito', 'asa', 'coxinha', 'filezinho'],
-        'aves': ['coxa', 'sobrecoxa', 'peito', 'asa', 'coxinha', 'filezinho', 'frango'],
-        'frios': ['mortadela', 'presunto', 'queijo', 'salamie', 'copa'],
-        'embutidos': ['calabresa', 'linguica', 'linguiça', 'salsicha', 'mortadela']
-    }
-    
-    # Adiciona produtos da categoria se palavra for categoria
-    for palavra in list(keywords):  # usa lista para não modificar durante iteração
-        if palavra in categorias:
-            expanded.update(categorias[palavra])
-    
-    return list(expanded)
-
-
-def _match_product(item: Dict[str, str], keywords: List[str]) -> bool:
-    """Verifica se um produto match com as palavras-chave expandidas"""
-    desc = _norm(_format_item(item))
-    return any(k in desc for k in keywords) if keywords else False
-
-
 def respond(message: str, context: dict | None = None):
     import logging
     logger = logging.getLogger("3afrios.backend")
@@ -96,22 +56,58 @@ def respond(message: str, context: dict | None = None):
     
     if items:
         logger.info(f"[Catalog] USANDO RESPOSTA DETERMINÍSTICA - {len(items)} itens disponíveis")
-        
-        # Usa busca inteligente com categorias
-        keywords = _get_product_keywords(message)
-        logger.info(f"[Catalog] Keywords expandidas: {keywords}")
+        # tokens relevantes da mensagem para filtro simples
+        raw_tokens = [t for t in _norm(message).split() if len(t) >= 3]
+        stop = set(['que','qual','quais','quanto','custa','tem','têm','teria','vende','vocês','voces','vcs','de','do','da','dos','das','o','a','os','as','um','uma','me','manda','mandar','enviar','ver','lista','catalogo','catálogo','preco','preço','valor','por','kg','quilo'])
+        keywords = [t for t in raw_tokens if t not in stop]
+
+def _get_product_keywords(message: str) -> List[str]:
+    """Extrai palavras-chave expandidas com sinônimos e categorias"""
+    raw_tokens = [t for t in _norm(message).split() if len(t) >= 3]
+    stop = set(['que','qual','quais','quanto','custa','tem','têm','teria','vende','vocês','voces','vcs','de','do','da','dos','das','o','a','os','as','um','uma','me','manda','mandar','enviar','ver','lista','catalogo','catálogo','preco','preço','valor','por','kg','quilo'])
+    keywords = [t for t in raw_tokens if t not in stop]
+    
+    # Expande com sinônimos e categorias
+    expanded = set(keywords)
+    
+    # Mapeamento de categorias
+    categorias = {
+        'porco': ['calabresa', 'linguica', 'linguiça', 'pernil', 'costela', 'lombo', 'bacon'],
+        'suino': ['calabresa', 'linguica', 'linguiça', 'pernil', 'costela', 'lombo', 'bacon'],
+        'suína': ['calabresa', 'linguica', 'linguiça', 'pernil', 'costela', 'lombo', 'bacon'],
+        'gado': ['picanha', 'alcatra', 'maminha', 'contrafile', 'coxao', 'patinho', 'acém'],
+        'bovino': ['picanha', 'alcatra', 'maminha', 'contrafile', 'coxao', 'patinho', 'acém'],
+        'boi': ['picanha', 'alcatra', 'maminha', 'contrafile', 'coxao', 'patinho', 'acém'],
+        'frango': ['coxa', 'sobrecoxa', 'peito', 'asa', 'coxinha', 'filezinho'],
+        'aves': ['coxa', 'sobrecoxa', 'peito', 'asa', 'coxinha', 'filezinho', 'frango'],
+        'frios': ['mortadela', 'presunto', 'queijo', 'salamie', 'copa'],
+        'embutidos': ['calabresa', 'linguica', 'linguiça', 'salsicha', 'mortadela']
+    }
+    
+    # Adiciona produtos da categoria se palavra for categoria
+    for palavra in keywords:
+        if palavra in categorias:
+            expanded.update(categorias[palavra])
+    
+    return list(expanded)
+
+
+def _match_product(item: Dict[str, str], keywords: List[str]) -> bool:
+    """Verifica se um produto match com as palavras-chave expandidas"""
+    desc = _norm(_format_item(item))
+    return any(k in desc for k in keywords) if keywords else False
 
         linhas: List[str] = []
         if is_specific and keywords:
-            filtrados = [it for it in items if _match_product(it, keywords)]
+            filtrados = [it for it in items if match(it)]
             if filtrados:
                 for it in filtrados[:10]:
                     f = _format_item(it)
                     if f:
                         linhas.append(f)
-                resposta = f'Encontrei estes itens ({len(filtrados)} produtos):' + '\n' + '\n'.join(linhas)
+                resposta = 'Encontrei estes itens:' + '\n' + '\n'.join(linhas)
             else:
-                resposta = 'Não encontrei esse item específico no catálogo. Posso verificar a disponibilidade ou enviar o catálogo completo?'
+                resposta = 'Não encontrei esse item no catálogo agora. Posso verificar a disponibilidade e retornar?'
         else:
             # pedido geral de catálogo ou apresentação
             for it in items[:12]:
@@ -145,6 +141,7 @@ def respond(message: str, context: dict | None = None):
                 'nossos principais produtos e preços de forma organizada e clara.\n\n'
                 f'Catálogo (produtos e preços):\n{prev[:1500]}'
             )
+        
         llm = generate_response(prompt, message or '')
         if llm:
             resposta = llm
@@ -154,7 +151,7 @@ def respond(message: str, context: dict | None = None):
             else:
                 resposta = 'Aqui está nosso catálogo atualizado com produtos e preços.'
     else:
-        if is_catalog_request:
+        if acao_especial:
             resposta = 'Aqui está nosso catálogo atualizado com produtos e preços.'
 
     return {
