@@ -129,11 +129,13 @@ CREATE TABLE IF NOT EXISTS templates_campanhas (
     tags TEXT[] DEFAULT ARRAY[]::TEXT[],
     
     created_at TIMESTAMP DEFAULT now(),
-    updated_at TIMESTAMP DEFAULT now(),
-    
-    -- Constraint para garantir apenas um template padrão por tipo
-    UNIQUE(tipo, template_padrao) DEFERRABLE INITIALLY DEFERRED
+    updated_at TIMESTAMP DEFAULT now()
 );
+
+-- Constraint para garantir apenas um template padrão por tipo
+CREATE UNIQUE INDEX IF NOT EXISTS idx_templates_campanhas_padrao_unico 
+ON templates_campanhas (tipo) 
+WHERE template_padrao = true;
 
 -- 3. HISTÓRICO DE CAMPANHAS ENVIADAS
 -- ===================================
@@ -295,40 +297,65 @@ SELECT false,
 WHERE NOT EXISTS (SELECT 1 FROM configuracoes_campanhas);
 
 -- Templates padrão para cada tipo de campanha
-INSERT INTO templates_campanhas (tipo, nome, template_titulo, template_conteudo, template_padrao, ativo) VALUES
-('lead_qualificado', 'Lead Qualificado - Padrão', '🎯 Oferta Especial 3A Frios', 
- 'Olá {nome_cliente}! 😊\n\nNotei seu interesse em nossos produtos de qualidade. Como você demonstrou um perfil de cliente especial, preparei uma oferta exclusiva:\n\n🥩 {produto_interesse}\n💰 {valor_oferta}\n🚚 Entrega: {prazo_entrega}\n\nEssa condição é válida apenas hoje! Posso preparar seu pedido agora?', 
- true, true),
+DO $$
+BEGIN
+    -- Insere templates apenas se não existirem templates padrão para cada tipo
+    IF NOT EXISTS (SELECT 1 FROM templates_campanhas WHERE tipo = 'lead_qualificado' AND template_padrao = true) THEN
+        INSERT INTO templates_campanhas (tipo, nome, template_titulo, template_conteudo, template_padrao, ativo) VALUES
+        ('lead_qualificado', 'Lead Qualificado - Padrão', '🎯 Oferta Especial 3A Frios', 
+         'Olá {nome_cliente}! 😊\n\nNotei seu interesse em nossos produtos de qualidade. Como você demonstrou um perfil de cliente especial, preparei uma oferta exclusiva:\n\n🥩 {produto_interesse}\n💰 {valor_oferta}\n🚚 Entrega: {prazo_entrega}\n\nEssa condição é válida apenas hoje! Posso preparar seu pedido agora?', 
+         true, true);
+    END IF;
 
-('promocao_produtos', 'Promoção de Produtos', '🔥 Promoção Imperdível!', 
- 'Oi {nome_cliente}! 🔥\n\nTemos uma promoção especial nos produtos que você tem interesse:\n\n{produto_interesse}\n{valor_oferta}\n\nPromoção válida apenas hoje! Quer garantir o seu?', 
- true, true),
+    IF NOT EXISTS (SELECT 1 FROM templates_campanhas WHERE tipo = 'promocao_produtos' AND template_padrao = true) THEN
+        INSERT INTO templates_campanhas (tipo, nome, template_titulo, template_conteudo, template_padrao, ativo) VALUES
+        ('promocao_produtos', 'Promoção de Produtos', '🔥 Promoção Imperdível!', 
+         'Oi {nome_cliente}! 🔥\n\nTemos uma promoção especial nos produtos que você tem interesse:\n\n{produto_interesse}\n{valor_oferta}\n\nPromoção válida apenas hoje! Quer garantir o seu?', 
+         true, true);
+    END IF;
 
-('follow_up_pedido', 'Follow-up de Pedido', '🛒 Finalize seu pedido!', 
- 'Olá {nome_cliente}! 😊\n\nVi que você estava interessado em finalizar um pedido conosco. Posso ajudar a completar sua compra?\n\nSeus itens ainda estão disponíveis e posso garantir a {prazo_entrega}!', 
- true, true),
+    IF NOT EXISTS (SELECT 1 FROM templates_campanhas WHERE tipo = 'follow_up_pedido' AND template_padrao = true) THEN
+        INSERT INTO templates_campanhas (tipo, nome, template_titulo, template_conteudo, template_padrao, ativo) VALUES
+        ('follow_up_pedido', 'Follow-up de Pedido', '🛒 Finalize seu pedido!', 
+         'Olá {nome_cliente}! 😊\n\nVi que você estava interessado em finalizar um pedido conosco. Posso ajudar a completar sua compra?\n\nSeus itens ainda estão disponíveis e posso garantir a {prazo_entrega}!', 
+         true, true);
+    END IF;
 
-('reativacao_cliente', 'Reativação de Cliente', '😊 Sentimos sua falta!', 
- 'Oi {nome_cliente}! 😊\n\nFaz um tempo que não fazemos suas compras juntos! Como você é um cliente especial, preparei uma oferta exclusiva para seu retorno:\n\n{valor_oferta}\n\nQue tal voltarmos a trabalhar juntos?', 
- true, true),
+    IF NOT EXISTS (SELECT 1 FROM templates_campanhas WHERE tipo = 'reativacao_cliente' AND template_padrao = true) THEN
+        INSERT INTO templates_campanhas (tipo, nome, template_titulo, template_conteudo, template_padrao, ativo) VALUES
+        ('reativacao_cliente', 'Reativação de Cliente', '😊 Sentimos sua falta!', 
+         'Oi {nome_cliente}! 😊\n\nFaz um tempo que não fazemos suas compras juntos! Como você é um cliente especial, preparei uma oferta exclusiva para seu retorno:\n\n{valor_oferta}\n\nQue tal voltarmos a trabalhar juntos?', 
+         true, true);
+    END IF;
 
-('cross_sell', 'Cross-sell', '🥩 Que tal complementar?', 
- 'Oi {nome_cliente}! 😊\n\nVi que você gostou do {produto_interesse}. Para completar sua compra, que tal adicionar:\n\n{valor_oferta}\n\nFica um combo perfeito! Posso incluir no seu pedido?', 
- true, true),
+    IF NOT EXISTS (SELECT 1 FROM templates_campanhas WHERE tipo = 'cross_sell' AND template_padrao = true) THEN
+        INSERT INTO templates_campanhas (tipo, nome, template_titulo, template_conteudo, template_padrao, ativo) VALUES
+        ('cross_sell', 'Cross-sell', '🥩 Que tal complementar?', 
+         'Oi {nome_cliente}! 😊\n\nVi que você gostou do {produto_interesse}. Para completar sua compra, que tal adicionar:\n\n{valor_oferta}\n\nFica um combo perfeito! Posso incluir no seu pedido?', 
+         true, true);
+    END IF;
 
-('feedback_pos_venda', 'Feedback Pós-venda', '📝 Como foi sua experiência?', 
- 'Oi {nome_cliente}! 😊\n\nEspero que tenha gostado dos produtos que entregamos! Sua opinião é muito importante para nós.\n\nComo foi sua experiência? Ficou satisfeito com a qualidade e entrega?', 
- true, true),
+    IF NOT EXISTS (SELECT 1 FROM templates_campanhas WHERE tipo = 'feedback_pos_venda' AND template_padrao = true) THEN
+        INSERT INTO templates_campanhas (tipo, nome, template_titulo, template_conteudo, template_padrao, ativo) VALUES
+        ('feedback_pos_venda', 'Feedback Pós-venda', '📝 Como foi sua experiência?', 
+         'Oi {nome_cliente}! 😊\n\nEspero que tenha gostado dos produtos que entregamos! Sua opinião é muito importante para nós.\n\nComo foi sua experiência? Ficou satisfeito com a qualidade e entrega?', 
+         true, true);
+    END IF;
 
-('oferta_personalizada', 'Oferta Personalizada', '🎁 Oferta Exclusiva para Você', 
- 'Olá {nome_cliente}! 🎁\n\nComo você é um cliente VIP, preparei uma oferta exclusiva baseada no seu perfil:\n\n{produto_interesse}\n{valor_oferta}\n\nEssa condição especial é só para você! Interessado?', 
- true, true),
+    IF NOT EXISTS (SELECT 1 FROM templates_campanhas WHERE tipo = 'oferta_personalizada' AND template_padrao = true) THEN
+        INSERT INTO templates_campanhas (tipo, nome, template_titulo, template_conteudo, template_padrao, ativo) VALUES
+        ('oferta_personalizada', 'Oferta Personalizada', '🎁 Oferta Exclusiva para Você', 
+         'Olá {nome_cliente}! 🎁\n\nComo você é um cliente VIP, preparei uma oferta exclusiva baseada no seu perfil:\n\n{produto_interesse}\n{valor_oferta}\n\nEssa condição especial é só para você! Interessado?', 
+         true, true);
+    END IF;
 
-('evento_especial', 'Evento Especial', '🎉 Produtos para seu Evento', 
- 'Oi {nome_cliente}! 🎉\n\nVi que você está organizando um evento especial! Temos produtos perfeitos para a ocasião:\n\n{produto_interesse}\n{valor_oferta}\n{prazo_entrega}\n\nPosso ajudar a tornar seu evento ainda mais especial?', 
- true, true)
-
-ON CONFLICT (tipo, template_padrao) DO NOTHING;
+    IF NOT EXISTS (SELECT 1 FROM templates_campanhas WHERE tipo = 'evento_especial' AND template_padrao = true) THEN
+        INSERT INTO templates_campanhas (tipo, nome, template_titulo, template_conteudo, template_padrao, ativo) VALUES
+        ('evento_especial', 'Evento Especial', '🎉 Produtos para seu Evento', 
+         'Oi {nome_cliente}! 🎉\n\nVi que você está organizando um evento especial! Temos produtos perfeitos para a ocasião:\n\n{produto_interesse}\n{valor_oferta}\n{prazo_entrega}\n\nPosso ajudar a tornar seu evento ainda mais especial?', 
+         true, true);
+    END IF;
+END $$;
 
 -- =========================================
 -- SCRIPT FINALIZADO
