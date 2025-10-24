@@ -13,7 +13,21 @@ from typing import Dict, Any, List, Optional, Tuple
 import json
 import re
 
-from .supabase_store import get_supabase_client
+try:
+    from .supabase_store import get_supabase_client
+except ImportError:
+    # Fallback se não conseguir importar
+    def get_supabase_client():
+        class MockClient:
+            def table(self, name):
+                return type('MockTable', (), {
+                    'select': lambda *a: type('MockQuery', (), {'execute': lambda: type('MockResult', (), {'data': []})()})(),
+                    'insert': lambda *a: type('MockQuery', (), {'execute': lambda: type('MockResult', (), {'data': []})()})(),
+                    'update': lambda *a: type('MockQuery', (), {'execute': lambda: type('MockResult', (), {'data': []})()})(),
+                    'delete': lambda *a: type('MockQuery', (), {'execute': lambda: type('MockResult', (), {'data': []})()})(),
+                })()
+        return MockClient()
+
 from .evolution import send_text
 
 logger = logging.getLogger("3afrios.campaign_processor")

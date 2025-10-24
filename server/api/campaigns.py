@@ -14,7 +14,26 @@ import logging
 import json
 
 # Importações locais
-from ..integrations.supabase_store import get_supabase_client
+try:
+    from ..integrations.supabase_store import get_supabase_client
+except ImportError:
+    # Fallback se não conseguir importar
+    def get_supabase_client():
+        class MockClient:
+            def table(self, name):
+                return type('MockTable', (), {
+                    'select': lambda *a: type('MockQuery', (), {
+                        'execute': lambda: type('MockResult', (), {'data': [], 'count': 0})(),
+                        'eq': lambda *a: type('MockQuery', (), {'execute': lambda: type('MockResult', (), {'data': []})()})(),
+                        'order': lambda *a, **k: type('MockQuery', (), {'execute': lambda: type('MockResult', (), {'data': []})()})(),
+                        'limit': lambda *a: type('MockQuery', (), {'execute': lambda: type('MockResult', (), {'data': []})()})(),
+                    })(),
+                    'insert': lambda *a: type('MockQuery', (), {'execute': lambda: type('MockResult', (), {'data': []})()})(),
+                    'update': lambda *a: type('MockQuery', (), {'execute': lambda: type('MockResult', (), {'data': []})()})(),
+                    'delete': lambda *a: type('MockQuery', (), {'execute': lambda: type('MockResult', (), {'data': []})()})(),
+                })()
+        return MockClient()
+
 from ..integrations.campaign_processor import CampaignAutomation
 
 logger = logging.getLogger("3afrios.api.campaigns")

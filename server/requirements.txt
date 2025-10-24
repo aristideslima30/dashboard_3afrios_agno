@@ -7,3 +7,4 @@ pydantic>=2.11.7
 google-api-python-client==2.153.0
 google-auth==2.35.0
 google-auth-oauthlib==1.2.1
+supabase>=2.8.0

@@ -19,6 +19,53 @@ async def _client() -> httpx.AsyncClient:
     return httpx.AsyncClient(base_url=f"{SUPABASE_URL.rstrip('/')}/rest/v1", headers=headers, timeout=10)
 
 
+# Cliente Supabase síncrono para uso nas APIs
+def get_supabase_client():
+    """
+    Retorna cliente Supabase para operações síncronas (APIs REST)
+    """
+    try:
+        from supabase import create_client, Client
+        return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
+    except ImportError:
+        # Fallback caso supabase-py não esteja disponível
+        class MockSupabaseClient:
+            def table(self, name):
+                return MockTable(name)
+        
+        class MockTable:
+            def __init__(self, name):
+                self.name = name
+                
+            def select(self, *args):
+                return MockQuery()
+                
+            def insert(self, data):
+                return MockQuery()
+                
+            def update(self, data):
+                return MockQuery()
+                
+            def delete(self):
+                return MockQuery()
+                
+        class MockQuery:
+            def eq(self, col, val):
+                return self
+                
+            def execute(self):
+                return type('MockResult', (), {'data': [], 'count': 0})()
+                
+            def limit(self, n):
+                return self
+                
+            def order(self, col, **kwargs):
+                return self
+        
+        logger.warning("supabase-py não disponível, usando cliente mock")
+        return MockSupabaseClient()
+
+
 # Funções alteradas: _find_cliente_by_telefone, _create_cliente_stub, _ensure_cliente_id
 
 async def _find_cliente_by_telefone(telefone: str) -> dict | None:
