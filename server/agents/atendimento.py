@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, Any, List
 from ..integrations.openai_client import generate_response
+from .service import get_service_utils
 
 
 logger = logging.getLogger("3afrios.backend")
@@ -176,6 +177,27 @@ def respond(message: str, context: dict | None = None):
     
     logger.info(f"[Atendimento] Ana processando mensagem: '{message[:50]}...' | Histórico: {len(conversation_history)} msgs")
     
+    # === INTEGRAÇÃO COM FERRAMENTAS DO SERVICE ===
+    service_utils = get_service_utils()
+    
+    # Detecta e valida CEPs mencionados na mensagem
+    import re
+    cep_pattern = r'\d{5}-?\d{3}'
+    ceps_encontrados = re.findall(cep_pattern, text)
+    validacao_cep = None
+    if ceps_encontrados:
+        validacao_cep = service_utils.validar_cep(ceps_encontrados[0])
+        if validacao_cep["valido"]:
+            # Calcula prazo de entrega personalizado
+            prazo_info = service_utils.calcular_prazo_entrega(ceps_encontrados[0])
+            bruno_context += f"\n📍 CEP {validacao_cep['formatado']} detectado - {prazo_info['info']}"
+    
+    # Detecta quantidades na mensagem para contexto
+    quantidades = service_utils.extrair_quantidades_texto(message)
+    if quantidades:
+        qtd_info = ", ".join([f"{q['valor']}{q['unidade']}" for q in quantidades])
+        bruno_context += f"\n⚖️ Quantidades mencionadas: {qtd_info}"
+    
     # === DETECÇÃO DE AÇÕES ESPECIAIS ===
     if any(k in text for k in ['endereço', 'atualizar endereço', 'mudar endereço', 'novo endereço']):
         acao_especial = '[ACAO:ATUALIZAR_ENDERECO]'
@@ -218,7 +240,16 @@ def respond(message: str, context: dict | None = None):
         
         # Respostas de fallback contextuais
         if acao_especial == '[ACAO:ATUALIZAR_ENDERECO]':
-            resposta = 'Olá! Sou a Ana da 3A Frios. Claro, posso atualizar seu endereço! Me informe o novo endereço completo, por favor.'
+            # Usa ferramentas do Service para resposta inteligente sobre endereço
+            endereco_help = "Me informe o novo endereço completo: rua, número, bairro, cidade, estado e CEP."
+            if validacao_cep:
+                if validacao_cep["valido"]:
+                    prazo_info = service_utils.calcular_prazo_entrega(ceps_encontrados[0])
+                    endereco_help += f" Para o CEP {validacao_cep['formatado']}, o prazo de entrega será {prazo_info['info']}."
+                else:
+                    endereco_help += f" (O CEP informado não parece estar no formato correto)"
+            
+            resposta = f'Olá! Sou a Ana da 3A Frios. Claro, posso atualizar seu endereço! {endereco_help}'
         
         elif acao_especial == '[ACAO:INICIAR_TROCA_DEVOLUCAO]':
             resposta = 'Oi! Ana aqui da 3A Frios. Vou te ajudar com a troca/devolução. Me conte o que aconteceu para eu orientar o melhor processo.'

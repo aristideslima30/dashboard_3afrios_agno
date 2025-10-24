@@ -1,4 +1,5 @@
 from ..integrations.openai_client import generate_response
+from .service import get_service_utils
 from typing import List, Dict, Any, Tuple
 import logging
 import re
@@ -166,6 +167,8 @@ def _get_similar_products(item_name: str, catalog_items: List[Dict[str, str]]) -
 
 def _calculate_order_total(items: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Calcula total do pedido incluindo taxa de entrega"""
+    service_utils = get_service_utils()
+    
     subtotal = 0
     items_validos = 0
     
@@ -185,9 +188,9 @@ def _calculate_order_total(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         'total': total,
         'items_validos': items_validos,
         'formatado': {
-            'subtotal': f"R$ {subtotal:.2f}",
-            'taxa_entrega': f"R$ {taxa_entrega:.2f}" if taxa_entrega > 0 else "Grátis",
-            'total': f"R$ {total:.2f}"
+            'subtotal': service_utils.formatar_valor_monetario(subtotal),
+            'taxa_entrega': service_utils.formatar_valor_monetario(taxa_entrega) if taxa_entrega > 0 else "Grátis",
+            'total': service_utils.formatar_valor_monetario(total)
         }
     }
 
