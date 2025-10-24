@@ -533,418 +533,461 @@ export function CampaignsManager() {
                 </Button>
               </DialogTrigger>
             
-            <DialogContent className="w-[95vw] max-w-[1400px] h-[90vh] max-h-[90vh] overflow-y-auto p-4 lg:p-6">
-              <DialogHeader className="pb-4 lg:pb-6">
-                <DialogTitle className="flex items-center gap-2 text-xl lg:text-2xl">
-                  {editingCampaign ? (
-                    <>
-                      <Edit className="h-6 w-6" />
-                      Editar Campanha
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-6 w-6" />
-                      Criar Nova Campanha
-                    </>
-                  )}
-                </DialogTitle>
-              </DialogHeader>
-              
-              <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 h-full">
-                {/* Coluna Principal - Formulário */}
-                <div className="flex-1 min-w-0 space-y-6 overflow-y-auto">
-                  {!editingCampaign && (
-                    <div className="space-y-4">
-                      <Label className="text-lg font-medium">🎯 Escolha um Template (Opcional)</Label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                        {CAMPAIGN_TEMPLATES.map((template) => (
-                          <div
-                            key={template.id}
-                            onClick={() => handleTemplateSelect(template.id)}
-                            className={`p-3 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
-                              selectedTemplate === template.id 
-                                ? 'border-orange-500 bg-orange-50' 
-                                : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                          >
-                            <div className="flex flex-col items-center gap-2 text-center">
-                              <span className="text-2xl">{template.icon}</span>
-                              <span className="font-medium text-xs leading-tight">{template.nome}</span>
+            <DialogContent className="w-[95vw] max-w-[1600px] h-[92vh] max-h-[92vh] overflow-hidden p-0 m-0">
+              <div className="h-full flex flex-col">
+                <DialogHeader className="px-6 py-4 border-b bg-white flex-shrink-0">
+                  <DialogTitle className="flex items-center gap-2 text-xl font-semibold">
+                    {editingCampaign ? (
+                      <>
+                        <Edit className="h-5 w-5 text-orange-500" />
+                        Editar Campanha
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-5 w-5 text-orange-500" />
+                        Criar Nova Campanha
+                      </>
+                    )}
+                  </DialogTitle>
+                </DialogHeader>
+                
+                <div className="flex-1 flex overflow-hidden">
+                  {/* Coluna Principal - Formulário */}
+                  <div className="flex-1 overflow-y-auto px-6 py-4">
+                    <div className="space-y-8">
+                      {!editingCampaign && (
+                        <div className="space-y-4">
+                          <Label className="text-lg font-semibold text-gray-800">🎯 Escolha um Template (Opcional)</Label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {CAMPAIGN_TEMPLATES.map((template) => (
+                              <div
+                                key={template.id}
+                                onClick={() => handleTemplateSelect(template.id)}
+                                className={`p-4 border-2 rounded-xl cursor-pointer transition-all hover:shadow-lg hover:scale-105 ${
+                                  selectedTemplate === template.id 
+                                    ? 'border-orange-500 bg-orange-50 shadow-md' 
+                                    : 'border-gray-200 hover:border-orange-300 bg-white'
+                                }`}
+                              >
+                                <div className="flex flex-col items-center gap-3 text-center">
+                                  <span className="text-3xl">{template.icon}</span>
+                                  <span className="font-semibold text-sm text-gray-700 leading-tight">{template.nome}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <form onSubmit={handleSubmit} className="space-y-8">
+                        {/* Informações Básicas */}
+                        <div className="space-y-6 p-6 border border-gray-200 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm">
+                          <h3 className="font-semibold flex items-center gap-3 text-xl text-gray-800 border-b border-blue-200 pb-3">
+                            📝 Informações Básicas
+                          </h3>
+                          
+                          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                            <div className="space-y-3">
+                              <Label htmlFor="nome" className="text-sm font-semibold text-gray-700">Nome da Campanha *</Label>
+                              <Input
+                                id="nome"
+                                value={formData.nome}
+                                onChange={(e) => setFormData({...formData, nome: e.target.value})}
+                                placeholder="Ex: Promoção Queijos Premium"
+                                required
+                                className="h-11 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                              />
+                            </div>
+                            
+                            <div className="space-y-3">
+                              <Label htmlFor="tipo_campanha" className="text-sm font-semibold text-gray-700">Tipo de Campanha</Label>
+                              <Select value={formData.tipo_campanha} onValueChange={(value) => setFormData({...formData, tipo_campanha: value})}>
+                                <SelectTrigger className="h-11 border-gray-300 focus:border-orange-500">
+                                  <SelectValue placeholder="Selecione o tipo" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="promocional">🏷️ Promocional</SelectItem>
+                                  <SelectItem value="lancamento">🚀 Lançamento</SelectItem>
+                                  <SelectItem value="reativacao">🔄 Reativação</SelectItem>
+                                  <SelectItem value="fidelizacao">⭐ Fidelização</SelectItem>
+                                  <SelectItem value="sazonal">🎄 Sazonal</SelectItem>
+                                  <SelectItem value="personalizada">🎨 Personalizada</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            
+                            <div className="space-y-3 lg:col-span-2 xl:col-span-1">
+                              <Label htmlFor="produtos" className="text-sm font-semibold text-gray-700">Produtos (separados por vírgula) *</Label>
+                              <Input
+                                id="produtos"
+                                value={formData.produtos}
+                                onChange={(e) => setFormData({...formData, produtos: e.target.value})}
+                                placeholder="Ex: queijo, presunto, salame"
+                                required
+                                className="h-11 border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                              />
                             </div>
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                        </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Informações Básicas */}
-                    <div className="space-y-4 p-4 lg:p-6 border rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
-                      <h3 className="font-medium flex items-center gap-2 text-lg">
-                        📝 Informações Básicas
-                      </h3>
-                      
-                      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="nome">Nome da Campanha *</Label>
-                          <Input
-                            id="nome"
-                            value={formData.nome}
-                            onChange={(e) => setFormData({...formData, nome: e.target.value})}
-                            placeholder="Ex: Promoção Queijos Premium"
-                            required
-                            className="h-10"
-                          />
+                        {/* Oferta e Objetivo */}
+                        <div className="space-y-6 p-6 border border-gray-200 rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 shadow-sm">
+                          <h3 className="font-semibold flex items-center gap-3 text-xl text-gray-800 border-b border-green-200 pb-3">
+                            🎯 Oferta e Objetivo
+                          </h3>
+                          
+                          <div className="space-y-6">
+                            <div className="space-y-3">
+                              <Label htmlFor="oferta" className="text-sm font-semibold text-gray-700">Oferta *</Label>
+                              <Textarea
+                                id="oferta"
+                                value={formData.oferta}
+                                onChange={(e) => setFormData({...formData, oferta: e.target.value})}
+                                placeholder="Ex: 20% de desconto em todos os queijos premium"
+                                required
+                                rows={4}
+                                className="resize-none border-gray-300 focus:border-green-500 focus:ring-green-500 text-sm"
+                              />
+                            </div>
+                            
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                              <div className="space-y-3">
+                                <Label htmlFor="objetivo" className="text-sm font-semibold text-gray-700">Objetivo da Campanha</Label>
+                                <Input
+                                  id="objetivo"
+                                  value={formData.objetivo}
+                                  onChange={(e) => setFormData({...formData, objetivo: e.target.value})}
+                                  placeholder="Ex: Aumentar vendas de queijos"
+                                  className="h-11 border-gray-300 focus:border-green-500 focus:ring-green-500"
+                                />
+                              </div>
+                              
+                              <div className="space-y-3">
+                                <Label htmlFor="canal_preferido" className="text-sm font-semibold text-gray-700">Canal Preferido</Label>
+                                <Select value={formData.canal_preferido} onValueChange={(value) => setFormData({...formData, canal_preferido: value})}>
+                                  <SelectTrigger className="h-11 border-gray-300 focus:border-green-500">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="WhatsApp">📱 WhatsApp</SelectItem>
+                                    <SelectItem value="Newsletter">📧 Newsletter</SelectItem>
+                                    <SelectItem value="WhatsApp + Newsletter">📱📧 WhatsApp + Newsletter</SelectItem>
+                                    <SelectItem value="Redes Sociais">📱 Redes Sociais</SelectItem>
+                                    <SelectItem value="Todos">🌐 Todos os Canais</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="tipo_campanha">Tipo de Campanha</Label>
-                          <Select value={formData.tipo_campanha} onValueChange={(value) => setFormData({...formData, tipo_campanha: value})}>
-                            <SelectTrigger className="h-10">
-                              <SelectValue placeholder="Selecione o tipo" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="promocional">🏷️ Promocional</SelectItem>
-                              <SelectItem value="lancamento">🚀 Lançamento</SelectItem>
-                              <SelectItem value="reativacao">🔄 Reativação</SelectItem>
-                              <SelectItem value="fidelizacao">⭐ Fidelização</SelectItem>
-                              <SelectItem value="sazonal">🎄 Sazonal</SelectItem>
-                              <SelectItem value="personalizada">🎨 Personalizada</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="space-y-2 lg:col-span-2 xl:col-span-1">
-                          <Label htmlFor="produtos">Produtos (separados por vírgula) *</Label>
-                          <Input
-                            id="produtos"
-                            value={formData.produtos}
-                            onChange={(e) => setFormData({...formData, produtos: e.target.value})}
-                            placeholder="Ex: queijo, presunto, salame"
-                            required
-                            className="h-10"
-                          />
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* Oferta e Objetivo */}
-                    <div className="space-y-4 p-4 lg:p-6 border rounded-lg bg-gradient-to-r from-green-50 to-emerald-50">
-                      <h3 className="font-medium flex items-center gap-2 text-lg">
-                        🎯 Oferta e Objetivo
-                      </h3>
-                      
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="oferta">Oferta *</Label>
-                          <Textarea
-                            id="oferta"
-                            value={formData.oferta}
-                            onChange={(e) => setFormData({...formData, oferta: e.target.value})}
-                            placeholder="Ex: 20% de desconto em todos os queijos premium"
-                            required
-                            rows={3}
-                            className="resize-none"
-                          />
-                        </div>
-                        
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="objetivo">Objetivo da Campanha</Label>
-                            <Input
-                              id="objetivo"
-                              value={formData.objetivo}
-                              onChange={(e) => setFormData({...formData, objetivo: e.target.value})}
-                              placeholder="Ex: Aumentar vendas de queijos"
-                              className="h-10"
-                            />
+                        {/* Período e Público */}
+                        <div className="space-y-6 p-6 border border-gray-200 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 shadow-sm">
+                          <h3 className="font-semibold flex items-center gap-3 text-xl text-gray-800 border-b border-purple-200 pb-3">
+                            🗓️ Período e Público
+                          </h3>
+                          
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                              <Label htmlFor="data_inicio" className="text-sm font-semibold text-gray-700">Data de Início *</Label>
+                              <Input
+                                id="data_inicio"
+                                type="datetime-local"
+                                value={formData.data_inicio}
+                                onChange={(e) => setFormData({...formData, data_inicio: e.target.value})}
+                                required
+                                className="h-11 border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+                              />
+                            </div>
+                            
+                            <div className="space-y-3">
+                              <Label htmlFor="data_fim" className="text-sm font-semibold text-gray-700">Data de Fim *</Label>
+                              <Input
+                                id="data_fim"
+                                type="datetime-local"
+                                value={formData.data_fim}
+                                onChange={(e) => setFormData({...formData, data_fim: e.target.value})}
+                                required
+                                className="h-11 border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+                              />
+                            </div>
                           </div>
                           
-                          <div className="space-y-2">
-                            <Label htmlFor="canal_preferido">Canal Preferido</Label>
-                            <Select value={formData.canal_preferido} onValueChange={(value) => setFormData({...formData, canal_preferido: value})}>
-                              <SelectTrigger className="h-10">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="WhatsApp">📱 WhatsApp</SelectItem>
-                                <SelectItem value="Newsletter">📧 Newsletter</SelectItem>
-                                <SelectItem value="WhatsApp + Newsletter">📱📧 WhatsApp + Newsletter</SelectItem>
-                                <SelectItem value="Redes Sociais">📱 Redes Sociais</SelectItem>
-                                <SelectItem value="Todos">🌐 Todos os Canais</SelectItem>
-                              </SelectContent>
-                            </Select>
+                          <div className="space-y-3">
+                            <Label htmlFor="publico_alvo" className="text-sm font-semibold text-gray-700">Público Alvo</Label>
+                            <Input
+                              id="publico_alvo"
+                              value={formData.publico_alvo}
+                              onChange={(e) => setFormData({...formData, publico_alvo: e.target.value})}
+                              placeholder="Ex: Clientes interessados em queijos premium"
+                              className="h-11 border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+                            />
                           </div>
                         </div>
-                      </div>
-                    </div>
 
-                    {/* Período e Público */}
-                    <div className="space-y-4 p-4 lg:p-6 border rounded-lg bg-gradient-to-r from-purple-50 to-pink-50">
-                      <h3 className="font-medium flex items-center gap-2 text-lg">
-                        🗓️ Período e Público
-                      </h3>
-                      
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="data_inicio">Data de Início *</Label>
-                          <Input
-                            id="data_inicio"
-                            type="datetime-local"
-                            value={formData.data_inicio}
-                            onChange={(e) => setFormData({...formData, data_inicio: e.target.value})}
-                            required
-                            className="h-10"
-                          />
+                        {/* Segmentação Simplificada */}
+                        <div className="space-y-6 p-6 border border-gray-200 rounded-xl bg-gradient-to-br from-yellow-50 to-orange-50 shadow-sm">
+                          <h3 className="font-semibold flex items-center gap-3 text-xl text-gray-800 border-b border-yellow-200 pb-3">
+                            🎯 Quem Receberá a Campanha (Simples e Fácil)
+                          </h3>
+                          
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Score dos Leads */}
+                            <div className="space-y-4">
+                              <Label className="font-semibold text-gray-700 text-base flex items-center gap-2">
+                                📊 Nível de Interesse
+                              </Label>
+                              <div className="space-y-3 bg-white p-4 rounded-lg border border-yellow-200">
+                                {SEGMENTATION_OPTIONS.lead_score.map((option) => (
+                                  <div key={option.value} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded transition-colors">
+                                    <input
+                                      type="radio"
+                                      id={`score_${option.value}`}
+                                      name="segmentacao_score"
+                                      value={option.value}
+                                      checked={formData.segmentacao_score === option.value}
+                                      onChange={(e) => setFormData({...formData, segmentacao_score: e.target.value})}
+                                      className="mt-1 w-4 h-4 text-orange-600 focus:ring-orange-500"
+                                    />
+                                    <label htmlFor={`score_${option.value}`} className="flex-1 cursor-pointer">
+                                      <div className="font-medium text-sm text-gray-900">{option.label}</div>
+                                      <div className="text-xs text-gray-600 mt-1">{option.description}</div>
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Tipo de Cliente */}
+                            <div className="space-y-4">
+                              <Label className="font-semibold text-gray-700 text-base flex items-center gap-2">
+                                👥 Tipo de Cliente
+                              </Label>
+                              <div className="space-y-3 bg-white p-4 rounded-lg border border-yellow-200">
+                                {SEGMENTATION_OPTIONS.tipo_cliente.map((option) => (
+                                  <div key={option.value} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded transition-colors">
+                                    <input
+                                      type="radio"
+                                      id={`tipo_${option.value}`}
+                                      name="segmentacao_tipo"
+                                      value={option.value}
+                                      checked={formData.segmentacao_tipo === option.value}
+                                      onChange={(e) => setFormData({...formData, segmentacao_tipo: e.target.value})}
+                                      className="mt-1 w-4 h-4 text-orange-600 focus:ring-orange-500"
+                                    />
+                                    <label htmlFor={`tipo_${option.value}`} className="flex-1 cursor-pointer">
+                                      <div className="font-medium text-sm text-gray-900">{option.label}</div>
+                                      <div className="text-xs text-gray-600 mt-1">{option.description}</div>
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Frequência */}
+                            <div className="space-y-4">
+                              <Label className="font-semibold text-gray-700 text-base flex items-center gap-2">
+                                🔄 Frequência de Compra
+                              </Label>
+                              <div className="space-y-3 bg-white p-4 rounded-lg border border-yellow-200">
+                                {SEGMENTATION_OPTIONS.frequencia.map((option) => (
+                                  <div key={option.value} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded transition-colors">
+                                    <input
+                                      type="radio"
+                                      id={`freq_${option.value}`}
+                                      name="segmentacao_frequencia"
+                                      value={option.value}
+                                      checked={formData.segmentacao_frequencia === option.value}
+                                      onChange={(e) => setFormData({...formData, segmentacao_frequencia: e.target.value})}
+                                      className="mt-1 w-4 h-4 text-orange-600 focus:ring-orange-500"
+                                    />
+                                    <label htmlFor={`freq_${option.value}`} className="flex-1 cursor-pointer">
+                                      <div className="font-medium text-sm text-gray-900">{option.label}</div>
+                                      <div className="text-xs text-gray-600 mt-1">{option.description}</div>
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Interesse */}
+                            <div className="space-y-4">
+                              <Label className="font-semibold text-gray-700 text-base flex items-center gap-2">
+                                🛒 Interesse em Produtos
+                              </Label>
+                              <div className="space-y-3 bg-white p-4 rounded-lg border border-yellow-200">
+                                {SEGMENTATION_OPTIONS.interesse.map((option) => (
+                                  <div key={option.value} className="flex items-start gap-3 p-2 hover:bg-gray-50 rounded transition-colors">
+                                    <input
+                                      type="radio"
+                                      id={`int_${option.value}`}
+                                      name="segmentacao_interesse"
+                                      value={option.value}
+                                      checked={formData.segmentacao_interesse === option.value}
+                                      onChange={(e) => setFormData({...formData, segmentacao_interesse: e.target.value})}
+                                      className="mt-1 w-4 h-4 text-orange-600 focus:ring-orange-500"
+                                    />
+                                    <label htmlFor={`int_${option.value}`} className="flex-1 cursor-pointer">
+                                      <div className="font-medium text-sm text-gray-900">{option.label}</div>
+                                      <div className="text-xs text-gray-600 mt-1">{option.description}</div>
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Configuração Manual (Avançado) */}
+                          <details className="mt-6">
+                            <summary className="cursor-pointer text-sm font-semibold text-gray-700 hover:text-orange-600 transition-colors p-3 bg-white rounded-lg border border-yellow-200">
+                              ⚙️ Configuração Manual (Avançado - JSON)
+                            </summary>
+                            <div className="mt-4 space-y-3 p-4 bg-white rounded-lg border border-gray-200">
+                              <Label htmlFor="segmento" className="text-sm font-semibold text-gray-700">Configuração de Segmento (JSON)</Label>
+                              <Textarea
+                                id="segmento"
+                                value={formData.segmento}
+                                onChange={(e) => handleSegmentoChange(e.target.value)}
+                                placeholder='Deixe vazio para usar as seleções acima automaticamente'
+                                className="font-mono text-sm resize-none border-gray-300 focus:border-orange-500 focus:ring-orange-500"
+                                rows={4}
+                              />
+                              {jsonError && (
+                                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                                  {jsonError}
+                                </div>
+                              )}
+                              <p className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg border">
+                                💡 Se deixar em branco, será gerado automaticamente com base nas suas seleções acima
+                              </p>
+                            </div>
+                          </details>
                         </div>
                         
-                        <div className="space-y-2">
-                          <Label htmlFor="data_fim">Data de Fim *</Label>
-                          <Input
-                            id="data_fim"
-                            type="datetime-local"
-                            value={formData.data_fim}
-                            onChange={(e) => setFormData({...formData, data_fim: e.target.value})}
-                            required
-                            className="h-10"
-                          />
+                        {/* Botões de Ação */}
+                        <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200">
+                          <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="h-11 px-6 font-medium">
+                            Cancelar
+                          </Button>
+                          {!showPreview && (
+                            <Button type="button" variant="outline" onClick={togglePreview} className="h-11 px-6 font-medium">
+                              👁️ Preview
+                            </Button>
+                          )}
+                          <Button 
+                            type="submit" 
+                            disabled={createCampaign.isPending || !!jsonError}
+                            className="bg-orange-500 hover:bg-orange-600 h-11 px-8 font-semibold shadow-lg hover:shadow-xl transition-all"
+                          >
+                            {createCampaign.isPending ? 'Salvando...' : editingCampaign ? 'Atualizar' : 'Criar Campanha'}
+                          </Button>
                         </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="publico_alvo">Público Alvo</Label>
-                        <Input
-                          id="publico_alvo"
-                          value={formData.publico_alvo}
-                          onChange={(e) => setFormData({...formData, publico_alvo: e.target.value})}
-                          placeholder="Ex: Clientes interessados em queijos premium"
-                          className="h-10"
-                        />
-                      </div>
+                      </form>
                     </div>
+                  </div>
 
-                    {/* Segmentação Simplificada */}
-                    <div className="space-y-4 p-4 lg:p-6 border rounded-lg bg-gradient-to-r from-yellow-50 to-orange-50">
-                      <h3 className="font-medium flex items-center gap-2 text-lg">
-                        🎯 Quem Receberá a Campanha (Simples e Fácil)
-                      </h3>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                        {/* Score dos Leads */}
-                        <div className="space-y-3">
-                          <Label className="font-medium">📊 Nível de Interesse</Label>
-                          <div className="space-y-2">
-                            {SEGMENTATION_OPTIONS.lead_score.map((option) => (
-                              <div key={option.value} className="flex items-start gap-3">
-                                <input
-                                  type="radio"
-                                  id={`score_${option.value}`}
-                                  name="segmentacao_score"
-                                  value={option.value}
-                                  checked={formData.segmentacao_score === option.value}
-                                  onChange={(e) => setFormData({...formData, segmentacao_score: e.target.value})}
-                                  className="mt-1 w-4 h-4"
-                                />
-                                <label htmlFor={`score_${option.value}`} className="flex-1 cursor-pointer">
-                                  <div className="font-medium text-sm">{option.label}</div>
-                                  <div className="text-xs text-gray-600">{option.description}</div>
-                                </label>
+                  {/* Coluna Direita - Preview */}
+                  <div className="w-80 xl:w-96 flex-shrink-0 border-l border-gray-200 bg-gray-50">
+                    <div className="sticky top-0 h-full overflow-y-auto p-6">
+                      <div className="space-y-6">
+                        <div className="p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
+                          <h3 className="font-semibold mb-6 flex items-center gap-3 text-xl text-gray-800 border-b border-gray-200 pb-4">
+                            👁️ Preview da Campanha
+                          </h3>
+                          
+                          <div className="space-y-5">
+                            <div className="space-y-2">
+                              <span className="font-semibold text-gray-600 text-sm uppercase tracking-wide">Nome:</span>
+                              <p className="text-gray-900 font-medium break-words bg-gray-50 p-3 rounded-lg border">
+                                {formData.nome || 'Não definido'}
+                              </p>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <span className="font-semibold text-gray-600 text-sm uppercase tracking-wide">Tipo:</span>
+                              <p className="text-gray-900 bg-gray-50 p-3 rounded-lg border">
+                                {formData.tipo_campanha || 'Não definido'}
+                              </p>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <span className="font-semibold text-gray-600 text-sm uppercase tracking-wide">Produtos:</span>
+                              <p className="text-gray-900 break-words bg-gray-50 p-3 rounded-lg border">
+                                {formData.produtos || 'Não definido'}
+                              </p>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <span className="font-semibold text-gray-600 text-sm uppercase tracking-wide">Oferta:</span>
+                              <p className="text-gray-900 break-words bg-gray-50 p-3 rounded-lg border leading-relaxed">
+                                {formData.oferta || 'Não definida'}
+                              </p>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <span className="font-semibold text-gray-600 text-sm uppercase tracking-wide">Público:</span>
+                              <p className="text-gray-900 break-words bg-gray-50 p-3 rounded-lg border">
+                                {formData.publico_alvo || 'Não definido'}
+                              </p>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <span className="font-semibold text-gray-600 text-sm uppercase tracking-wide">Canal:</span>
+                              <p className="text-gray-900 bg-gray-50 p-3 rounded-lg border">
+                                {formData.canal_preferido}
+                              </p>
+                            </div>
+                            
+                            {/* Resumo da Segmentação */}
+                            <div className="pt-4 border-t border-gray-200">
+                              <span className="font-semibold text-gray-600 text-sm uppercase tracking-wide">🎯 Vai para:</span>
+                              <div className="text-sm space-y-2 mt-3 bg-orange-50 p-4 rounded-lg border border-orange-200">
+                                <p className="flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                                  📊 {SEGMENTATION_OPTIONS.lead_score.find(opt => opt.value === formData.segmentacao_score)?.label}
+                                </p>
+                                <p className="flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                                  👥 {SEGMENTATION_OPTIONS.tipo_cliente.find(opt => opt.value === formData.segmentacao_tipo)?.label}
+                                </p>
+                                <p className="flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                                  🔄 {SEGMENTATION_OPTIONS.frequencia.find(opt => opt.value === formData.segmentacao_frequencia)?.label}
+                                </p>
+                                <p className="flex items-center gap-2">
+                                  <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                                  🛒 {SEGMENTATION_OPTIONS.interesse.find(opt => opt.value === formData.segmentacao_interesse)?.label}
+                                </p>
                               </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Tipo de Cliente */}
-                        <div className="space-y-3">
-                          <Label className="font-medium">👥 Tipo de Cliente</Label>
-                          <div className="space-y-2">
-                            {SEGMENTATION_OPTIONS.tipo_cliente.map((option) => (
-                              <div key={option.value} className="flex items-start gap-3">
-                                <input
-                                  type="radio"
-                                  id={`tipo_${option.value}`}
-                                  name="segmentacao_tipo"
-                                  value={option.value}
-                                  checked={formData.segmentacao_tipo === option.value}
-                                  onChange={(e) => setFormData({...formData, segmentacao_tipo: e.target.value})}
-                                  className="mt-1 w-4 h-4"
-                                />
-                                <label htmlFor={`tipo_${option.value}`} className="flex-1 cursor-pointer">
-                                  <div className="font-medium text-sm">{option.label}</div>
-                                  <div className="text-xs text-gray-600">{option.description}</div>
-                                </label>
+                            </div>
+                            
+                            {formData.data_inicio && formData.data_fim && (
+                              <div className="space-y-2">
+                                <span className="font-semibold text-gray-600 text-sm uppercase tracking-wide">Período:</span>
+                                <p className="text-gray-900 text-sm bg-gray-50 p-3 rounded-lg border">
+                                  {new Date(formData.data_inicio).toLocaleDateString('pt-BR')} até {new Date(formData.data_fim).toLocaleDateString('pt-BR')}
+                                </p>
                               </div>
-                            ))}
+                            )}
                           </div>
-                        </div>
-
-                        {/* Frequência */}
-                        <div className="space-y-3">
-                          <Label className="font-medium">🔄 Frequência de Compra</Label>
-                          <div className="space-y-2">
-                            {SEGMENTATION_OPTIONS.frequencia.map((option) => (
-                              <div key={option.value} className="flex items-start gap-3">
-                                <input
-                                  type="radio"
-                                  id={`freq_${option.value}`}
-                                  name="segmentacao_frequencia"
-                                  value={option.value}
-                                  checked={formData.segmentacao_frequencia === option.value}
-                                  onChange={(e) => setFormData({...formData, segmentacao_frequencia: e.target.value})}
-                                  className="mt-1 w-4 h-4"
-                                />
-                                <label htmlFor={`freq_${option.value}`} className="flex-1 cursor-pointer">
-                                  <div className="font-medium text-sm">{option.label}</div>
-                                  <div className="text-xs text-gray-600">{option.description}</div>
-                                </label>
+                          
+                          {formData.nome && formData.oferta && (
+                            <div className="mt-6 p-4 bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-xl shadow-sm">
+                              <p className="text-sm font-semibold text-orange-800 mb-3 flex items-center gap-2">
+                                💬 Mensagem de exemplo:
+                              </p>
+                              <div className="bg-white p-4 rounded-lg border-l-4 border-l-orange-500 shadow-sm">
+                                <p className="text-sm leading-relaxed">
+                                  🎯 <strong className="text-gray-900">{formData.nome}</strong><br/>
+                                  <span className="text-gray-700">{formData.oferta}</span><br/>
+                                  <span className="text-orange-600 font-medium">📱 Responda para saber mais!</span>
+                                </p>
                               </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Interesse */}
-                        <div className="space-y-3">
-                          <Label className="font-medium">🛒 Interesse em Produtos</Label>
-                          <div className="space-y-2">
-                            {SEGMENTATION_OPTIONS.interesse.map((option) => (
-                              <div key={option.value} className="flex items-start gap-3">
-                                <input
-                                  type="radio"
-                                  id={`int_${option.value}`}
-                                  name="segmentacao_interesse"
-                                  value={option.value}
-                                  checked={formData.segmentacao_interesse === option.value}
-                                  onChange={(e) => setFormData({...formData, segmentacao_interesse: e.target.value})}
-                                  className="mt-1 w-4 h-4"
-                                />
-                                <label htmlFor={`int_${option.value}`} className="flex-1 cursor-pointer">
-                                  <div className="font-medium text-sm">{option.label}</div>
-                                  <div className="text-xs text-gray-600">{option.description}</div>
-                                </label>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Configuração Manual (Avançado) */}
-                      <details className="mt-6">
-                        <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800">
-                          ⚙️ Configuração Manual (Avançado - JSON)
-                        </summary>
-                        <div className="mt-3 space-y-2">
-                          <Label htmlFor="segmento">Configuração de Segmento (JSON)</Label>
-                          <Textarea
-                            id="segmento"
-                            value={formData.segmento}
-                            onChange={(e) => handleSegmentoChange(e.target.value)}
-                            placeholder='Deixe vazio para usar as seleções acima automaticamente'
-                            className="font-mono text-sm resize-none"
-                            rows={3}
-                          />
-                          {jsonError && (
-                            <div className="flex items-center gap-2 mt-1 text-red-600 text-xs">
-                              <AlertCircle className="h-3 w-3" />
-                              {jsonError}
                             </div>
                           )}
-                          <p className="text-xs text-gray-500">
-                            💡 Se deixar em branco, será gerado automaticamente com base nas suas seleções acima
-                          </p>
                         </div>
-                      </details>
-                    </div>
-                    
-                    <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6">
-                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                        Cancelar
-                      </Button>
-                      {!showPreview && (
-                        <Button type="button" variant="outline" onClick={togglePreview}>
-                          👁️ Preview
-                        </Button>
-                      )}
-                      <Button 
-                        type="submit" 
-                        disabled={createCampaign.isPending || !!jsonError}
-                        className="bg-orange-500 hover:bg-orange-600"
-                      >
-                        {createCampaign.isPending ? 'Salvando...' : editingCampaign ? 'Atualizar' : 'Criar Campanha'}
-                      </Button>
-                    </div>
-                  </form>
-                </div>
-
-                {/* Coluna Direita - Preview */}
-                <div className="lg:w-80 xl:w-96 flex-shrink-0">
-                  <div className="sticky top-4">
-                    <div className="p-4 lg:p-6 border rounded-lg bg-gradient-to-br from-gray-50 to-gray-100">
-                      <h3 className="font-medium mb-4 flex items-center gap-2 text-lg">
-                        👁️ Preview da Campanha
-                      </h3>
-                      
-                      <div className="space-y-3 text-sm">
-                        <div>
-                          <span className="font-medium text-gray-600">Nome:</span>
-                          <p className="text-gray-900 break-words mt-1">{formData.nome || 'Não definido'}</p>
-                        </div>
-                        
-                        <div>
-                          <span className="font-medium text-gray-600">Tipo:</span>
-                          <p className="text-gray-900 mt-1">{formData.tipo_campanha || 'Não definido'}</p>
-                        </div>
-                        
-                        <div>
-                          <span className="font-medium text-gray-600">Produtos:</span>
-                          <p className="text-gray-900 break-words mt-1">{formData.produtos || 'Não definido'}</p>
-                        </div>
-                        
-                        <div>
-                          <span className="font-medium text-gray-600">Oferta:</span>
-                          <p className="text-gray-900 break-words mt-1">{formData.oferta || 'Não definida'}</p>
-                        </div>
-                        
-                        <div>
-                          <span className="font-medium text-gray-600">Público:</span>
-                          <p className="text-gray-900 break-words mt-1">{formData.publico_alvo || 'Não definido'}</p>
-                        </div>
-                        
-                        <div>
-                          <span className="font-medium text-gray-600">Canal:</span>
-                          <p className="text-gray-900 mt-1">{formData.canal_preferido}</p>
-                        </div>
-                        
-                        {/* Resumo da Segmentação */}
-                        <div className="pt-3 border-t">
-                          <span className="font-medium text-gray-600">🎯 Vai para:</span>
-                          <div className="text-xs space-y-1 mt-2">
-                            <p>📊 {SEGMENTATION_OPTIONS.lead_score.find(opt => opt.value === formData.segmentacao_score)?.label}</p>
-                            <p>👥 {SEGMENTATION_OPTIONS.tipo_cliente.find(opt => opt.value === formData.segmentacao_tipo)?.label}</p>
-                            <p>🔄 {SEGMENTATION_OPTIONS.frequencia.find(opt => opt.value === formData.segmentacao_frequencia)?.label}</p>
-                            <p>🛒 {SEGMENTATION_OPTIONS.interesse.find(opt => opt.value === formData.segmentacao_interesse)?.label}</p>
-                          </div>
-                        </div>
-                        
-                        {formData.data_inicio && formData.data_fim && (
-                          <div>
-                            <span className="font-medium text-gray-600">Período:</span>
-                            <p className="text-gray-900 text-xs mt-1">
-                              {new Date(formData.data_inicio).toLocaleDateString('pt-BR')} até {new Date(formData.data_fim).toLocaleDateString('pt-BR')}
-                            </p>
-                          </div>
-                        )}
                       </div>
-                      
-                      {formData.nome && formData.oferta && (
-                        <div className="mt-4 p-3 bg-white border rounded border-l-4 border-l-orange-500">
-                          <p className="text-xs text-gray-600 mb-2">💬 Mensagem de exemplo:</p>
-                          <p className="text-sm break-words">
-                            🎯 <strong>{formData.nome}</strong><br/>
-                            {formData.oferta}<br/>
-                            📱 Responda para saber mais!
-                          </p>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
