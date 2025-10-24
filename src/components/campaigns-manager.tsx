@@ -533,9 +533,9 @@ export function CampaignsManager() {
                 </Button>
               </DialogTrigger>
             
-            <DialogContent className="max-w-7xl w-[95vw] max-h-[95vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
+            <DialogContent className="max-w-[98vw] w-[98vw] max-h-[98vh] overflow-y-auto p-2 sm:p-4 lg:p-6">
+              <DialogHeader className="pb-4">
+                <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
                   {editingCampaign ? (
                     <>
                       <Edit className="h-5 w-5" />
@@ -550,26 +550,26 @@ export function CampaignsManager() {
                 </DialogTitle>
               </DialogHeader>
               
-              <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
                 {/* Coluna Esquerda - Formulário Principal */}
-                <div className="xl:col-span-3 space-y-6">
+                <div className="lg:col-span-2 xl:col-span-3 space-y-4 lg:space-y-6">
                   {!editingCampaign && (
                     <div className="space-y-3">
                       <Label className="text-base font-medium">🎯 Escolha um Template (Opcional)</Label>
-                      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-5 gap-2 lg:gap-3">
                         {CAMPAIGN_TEMPLATES.map((template) => (
                           <div
                             key={template.id}
                             onClick={() => handleTemplateSelect(template.id)}
-                            className={`p-3 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
+                            className={`p-2 lg:p-3 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
                               selectedTemplate === template.id 
                                 ? 'border-orange-500 bg-orange-50' 
                                 : 'border-gray-200 hover:border-gray-300'
                             }`}
                           >
                             <div className="flex flex-col items-center gap-1 text-center">
-                              <span className="text-lg">{template.icon}</span>
-                              <span className="font-medium text-xs">{template.nome}</span>
+                              <span className="text-base lg:text-lg">{template.icon}</span>
+                              <span className="font-medium text-xs lg:text-sm leading-tight">{template.nome}</span>
                             </div>
                           </div>
                         ))}
@@ -577,29 +577,30 @@ export function CampaignsManager() {
                     </div>
                   )}
 
-                  <form onSubmit={handleSubmit} className="space-y-6">
+                  <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6">
                     {/* Informações Básicas */}
-                    <div className="space-y-4 p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
-                      <h3 className="font-medium flex items-center gap-2">
+                    <div className="space-y-3 lg:space-y-4 p-3 lg:p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+                      <h3 className="font-medium flex items-center gap-2 text-sm lg:text-base">
                         📝 Informações Básicas
                       </h3>
                       
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="nome">Nome da Campanha *</Label>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="nome" className="text-sm">Nome da Campanha *</Label>
                           <Input
                             id="nome"
                             value={formData.nome}
                             onChange={(e) => setFormData({...formData, nome: e.target.value})}
                             placeholder="Ex: Promoção Queijos Premium"
                             required
+                            className="text-sm"
                           />
                         </div>
                         
-                        <div>
-                          <Label htmlFor="tipo_campanha">Tipo de Campanha</Label>
+                        <div className="space-y-2">
+                          <Label htmlFor="tipo_campanha" className="text-sm">Tipo de Campanha</Label>
                           <Select value={formData.tipo_campanha} onValueChange={(value) => setFormData({...formData, tipo_campanha: value})}>
-                            <SelectTrigger>
+                            <SelectTrigger className="text-sm">
                               <SelectValue placeholder="Selecione o tipo" />
                             </SelectTrigger>
                             <SelectContent>
@@ -614,26 +615,27 @@ export function CampaignsManager() {
                         </div>
                       </div>
                       
-                      <div>
-                        <Label htmlFor="produtos">Produtos (separados por vírgula) *</Label>
+                      <div className="space-y-2">
+                        <Label htmlFor="produtos" className="text-sm">Produtos (separados por vírgula) *</Label>
                         <Input
                           id="produtos"
                           value={formData.produtos}
                           onChange={(e) => setFormData({...formData, produtos: e.target.value})}
                           placeholder="Ex: queijo, presunto, salame"
                           required
+                          className="text-sm"
                         />
                       </div>
                     </div>
 
                     {/* Oferta e Objetivo */}
-                    <div className="space-y-4 p-4 border rounded-lg bg-gradient-to-r from-green-50 to-emerald-50">
-                      <h3 className="font-medium flex items-center gap-2">
+                    <div className="space-y-3 lg:space-y-4 p-3 lg:p-4 border rounded-lg bg-gradient-to-r from-green-50 to-emerald-50">
+                      <h3 className="font-medium flex items-center gap-2 text-sm lg:text-base">
                         🎯 Oferta e Objetivo
                       </h3>
                       
-                      <div>
-                        <Label htmlFor="oferta">Oferta *</Label>
+                      <div className="space-y-2">
+                        <Label htmlFor="oferta" className="text-sm">Oferta *</Label>
                         <Textarea
                           id="oferta"
                           value={formData.oferta}
@@ -641,24 +643,26 @@ export function CampaignsManager() {
                           placeholder="Ex: 20% de desconto em todos os queijos premium"
                           required
                           rows={3}
+                          className="text-sm resize-none"
                         />
                       </div>
                       
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="objetivo">Objetivo da Campanha</Label>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="objetivo" className="text-sm">Objetivo da Campanha</Label>
                           <Input
                             id="objetivo"
                             value={formData.objetivo}
                             onChange={(e) => setFormData({...formData, objetivo: e.target.value})}
                             placeholder="Ex: Aumentar vendas de queijos"
+                            className="text-sm"
                           />
                         </div>
                         
-                        <div>
-                          <Label htmlFor="canal_preferido">Canal Preferido</Label>
+                        <div className="space-y-2">
+                          <Label htmlFor="canal_preferido" className="text-sm">Canal Preferido</Label>
                           <Select value={formData.canal_preferido} onValueChange={(value) => setFormData({...formData, canal_preferido: value})}>
-                            <SelectTrigger>
+                            <SelectTrigger className="text-sm">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -674,59 +678,62 @@ export function CampaignsManager() {
                     </div>
 
                     {/* Período e Público */}
-                    <div className="space-y-4 p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-pink-50">
-                      <h3 className="font-medium flex items-center gap-2">
+                    <div className="space-y-3 lg:space-y-4 p-3 lg:p-4 border rounded-lg bg-gradient-to-r from-purple-50 to-pink-50">
+                      <h3 className="font-medium flex items-center gap-2 text-sm lg:text-base">
                         🗓️ Período e Público
                       </h3>
                       
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="data_inicio">Data de Início *</Label>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="data_inicio" className="text-sm">Data de Início *</Label>
                           <Input
                             id="data_inicio"
                             type="datetime-local"
                             value={formData.data_inicio}
                             onChange={(e) => setFormData({...formData, data_inicio: e.target.value})}
                             required
+                            className="text-sm"
                           />
                         </div>
                         
-                        <div>
-                          <Label htmlFor="data_fim">Data de Fim *</Label>
+                        <div className="space-y-2">
+                          <Label htmlFor="data_fim" className="text-sm">Data de Fim *</Label>
                           <Input
                             id="data_fim"
                             type="datetime-local"
                             value={formData.data_fim}
                             onChange={(e) => setFormData({...formData, data_fim: e.target.value})}
                             required
+                            className="text-sm"
                           />
                         </div>
                       </div>
                       
-                      <div>
-                        <Label htmlFor="publico_alvo">Público Alvo</Label>
+                      <div className="space-y-2">
+                        <Label htmlFor="publico_alvo" className="text-sm">Público Alvo</Label>
                         <Input
                           id="publico_alvo"
                           value={formData.publico_alvo}
                           onChange={(e) => setFormData({...formData, publico_alvo: e.target.value})}
                           placeholder="Ex: Clientes interessados em queijos premium"
+                          className="text-sm"
                         />
                       </div>
                     </div>
 
                     {/* Segmentação Simplificada */}
-                    <div className="space-y-4 p-4 border rounded-lg bg-gradient-to-r from-yellow-50 to-orange-50">
-                      <h3 className="font-medium flex items-center gap-2">
+                    <div className="space-y-3 lg:space-y-4 p-3 lg:p-4 border rounded-lg bg-gradient-to-r from-yellow-50 to-orange-50">
+                      <h3 className="font-medium flex items-center gap-2 text-sm lg:text-base">
                         🎯 Quem Receberá a Campanha (Simples e Fácil)
                       </h3>
                       
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                         {/* Score dos Leads */}
-                        <div className="space-y-3">
+                        <div className="space-y-2 lg:space-y-3">
                           <Label className="text-sm font-medium">📊 Nível de Interesse</Label>
-                          <div className="space-y-2">
+                          <div className="space-y-1 lg:space-y-2">
                             {SEGMENTATION_OPTIONS.lead_score.map((option) => (
-                              <div key={option.value} className="flex items-start gap-3">
+                              <div key={option.value} className="flex items-start gap-2 lg:gap-3">
                                 <input
                                   type="radio"
                                   id={`score_${option.value}`}
@@ -737,8 +744,8 @@ export function CampaignsManager() {
                                   className="mt-1"
                                 />
                                 <label htmlFor={`score_${option.value}`} className="flex-1 cursor-pointer">
-                                  <div className="font-medium text-sm">{option.label}</div>
-                                  <div className="text-xs text-gray-600">{option.description}</div>
+                                  <div className="font-medium text-xs lg:text-sm">{option.label}</div>
+                                  <div className="text-xs text-gray-600 leading-tight">{option.description}</div>
                                 </label>
                               </div>
                             ))}
@@ -746,11 +753,11 @@ export function CampaignsManager() {
                         </div>
 
                         {/* Tipo de Cliente */}
-                        <div className="space-y-3">
+                        <div className="space-y-2 lg:space-y-3">
                           <Label className="text-sm font-medium">👥 Tipo de Cliente</Label>
-                          <div className="space-y-2">
+                          <div className="space-y-1 lg:space-y-2">
                             {SEGMENTATION_OPTIONS.tipo_cliente.map((option) => (
-                              <div key={option.value} className="flex items-start gap-3">
+                              <div key={option.value} className="flex items-start gap-2 lg:gap-3">
                                 <input
                                   type="radio"
                                   id={`tipo_${option.value}`}
@@ -761,8 +768,8 @@ export function CampaignsManager() {
                                   className="mt-1"
                                 />
                                 <label htmlFor={`tipo_${option.value}`} className="flex-1 cursor-pointer">
-                                  <div className="font-medium text-sm">{option.label}</div>
-                                  <div className="text-xs text-gray-600">{option.description}</div>
+                                  <div className="font-medium text-xs lg:text-sm">{option.label}</div>
+                                  <div className="text-xs text-gray-600 leading-tight">{option.description}</div>
                                 </label>
                               </div>
                             ))}
@@ -770,11 +777,11 @@ export function CampaignsManager() {
                         </div>
 
                         {/* Frequência */}
-                        <div className="space-y-3">
+                        <div className="space-y-2 lg:space-y-3">
                           <Label className="text-sm font-medium">🔄 Frequência de Compra</Label>
-                          <div className="space-y-2">
+                          <div className="space-y-1 lg:space-y-2">
                             {SEGMENTATION_OPTIONS.frequencia.map((option) => (
-                              <div key={option.value} className="flex items-start gap-3">
+                              <div key={option.value} className="flex items-start gap-2 lg:gap-3">
                                 <input
                                   type="radio"
                                   id={`freq_${option.value}`}
@@ -785,8 +792,8 @@ export function CampaignsManager() {
                                   className="mt-1"
                                 />
                                 <label htmlFor={`freq_${option.value}`} className="flex-1 cursor-pointer">
-                                  <div className="font-medium text-sm">{option.label}</div>
-                                  <div className="text-xs text-gray-600">{option.description}</div>
+                                  <div className="font-medium text-xs lg:text-sm">{option.label}</div>
+                                  <div className="text-xs text-gray-600 leading-tight">{option.description}</div>
                                 </label>
                               </div>
                             ))}
@@ -794,11 +801,11 @@ export function CampaignsManager() {
                         </div>
 
                         {/* Interesse */}
-                        <div className="space-y-3">
+                        <div className="space-y-2 lg:space-y-3">
                           <Label className="text-sm font-medium">🛒 Interesse em Produtos</Label>
-                          <div className="space-y-2">
+                          <div className="space-y-1 lg:space-y-2">
                             {SEGMENTATION_OPTIONS.interesse.map((option) => (
-                              <div key={option.value} className="flex items-start gap-3">
+                              <div key={option.value} className="flex items-start gap-2 lg:gap-3">
                                 <input
                                   type="radio"
                                   id={`int_${option.value}`}
@@ -809,8 +816,8 @@ export function CampaignsManager() {
                                   className="mt-1"
                                 />
                                 <label htmlFor={`int_${option.value}`} className="flex-1 cursor-pointer">
-                                  <div className="font-medium text-sm">{option.label}</div>
-                                  <div className="text-xs text-gray-600">{option.description}</div>
+                                  <div className="font-medium text-xs lg:text-sm">{option.label}</div>
+                                  <div className="text-xs text-gray-600 leading-tight">{option.description}</div>
                                 </label>
                               </div>
                             ))}
@@ -819,18 +826,18 @@ export function CampaignsManager() {
                       </div>
 
                       {/* Configuração Manual (Avançado) */}
-                      <details className="mt-6">
+                      <details className="mt-4 lg:mt-6">
                         <summary className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800">
                           ⚙️ Configuração Manual (Avançado - JSON)
                         </summary>
-                        <div className="mt-3">
-                          <Label htmlFor="segmento">Configuração de Segmento (JSON)</Label>
+                        <div className="mt-3 space-y-2">
+                          <Label htmlFor="segmento" className="text-sm">Configuração de Segmento (JSON)</Label>
                           <Textarea
                             id="segmento"
                             value={formData.segmento}
                             onChange={(e) => handleSegmentoChange(e.target.value)}
                             placeholder='Deixe vazio para usar as seleções acima automaticamente'
-                            className="font-mono text-sm"
+                            className="font-mono text-xs lg:text-sm resize-none"
                             rows={3}
                           />
                           {jsonError && (
@@ -839,26 +846,26 @@ export function CampaignsManager() {
                               {jsonError}
                             </div>
                           )}
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-gray-500">
                             💡 Se deixar em branco, será gerado automaticamente com base nas suas seleções acima
                           </p>
                         </div>
                       </details>
                     </div>
                     
-                    <div className="flex justify-end gap-2 pt-4">
-                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 lg:pt-6">
+                      <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} className="text-sm">
                         Cancelar
                       </Button>
                       {!showPreview && (
-                        <Button type="button" variant="outline" onClick={togglePreview}>
+                        <Button type="button" variant="outline" onClick={togglePreview} className="text-sm">
                           👁️ Preview
                         </Button>
                       )}
                       <Button 
                         type="submit" 
                         disabled={createCampaign.isPending || !!jsonError}
-                        className="bg-orange-500 hover:bg-orange-600"
+                        className="bg-orange-500 hover:bg-orange-600 text-sm"
                       >
                         {createCampaign.isPending ? 'Salvando...' : editingCampaign ? 'Atualizar' : 'Criar Campanha'}
                       </Button>
@@ -867,14 +874,14 @@ export function CampaignsManager() {
                 </div>
 
                 {/* Coluna Direita - Preview */}
-                <div className="xl:col-span-1 space-y-4">
+                <div className="lg:col-span-1 xl:col-span-1 space-y-4">
                   <div className="sticky top-4">
-                    <div className="p-4 border rounded-lg bg-gradient-to-br from-gray-50 to-gray-100">
-                      <h3 className="font-medium mb-3 flex items-center gap-2">
+                    <div className="p-3 lg:p-4 border rounded-lg bg-gradient-to-br from-gray-50 to-gray-100">
+                      <h3 className="font-medium mb-3 flex items-center gap-2 text-sm lg:text-base">
                         👁️ Preview da Campanha
                       </h3>
                       
-                      <div className="space-y-3 text-sm">
+                      <div className="space-y-2 lg:space-y-3 text-xs lg:text-sm">
                         <div>
                           <span className="font-medium text-gray-600">Nome:</span>
                           <p className="text-gray-900 break-words">{formData.nome || 'Não definido'}</p>
@@ -927,9 +934,9 @@ export function CampaignsManager() {
                       </div>
                       
                       {formData.nome && formData.oferta && (
-                        <div className="mt-4 p-3 bg-white border rounded border-l-4 border-l-orange-500">
+                        <div className="mt-3 lg:mt-4 p-2 lg:p-3 bg-white border rounded border-l-4 border-l-orange-500">
                           <p className="text-xs text-gray-600 mb-1">💬 Mensagem de exemplo:</p>
-                          <p className="text-sm break-words">
+                          <p className="text-xs lg:text-sm break-words">
                             🎯 <strong>{formData.nome}</strong><br/>
                             {formData.oferta}<br/>
                             📱 Responda para saber mais!
