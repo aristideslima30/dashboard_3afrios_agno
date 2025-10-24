@@ -533,7 +533,7 @@ export function CampaignsManager() {
                 </Button>
               </DialogTrigger>
             
-            <DialogContent className="w-[98vw] max-w-[1500px] h-[95vh] max-h-[95vh] overflow-hidden p-0">
+            <DialogContent className="w-[96vw] max-w-screen-xl h-[95vh] max-h-[95vh] overflow-auto p-0">
               <div className="h-full flex flex-col">
                 <DialogHeader className="px-6 py-4 border-b bg-white flex-shrink-0">
                   <DialogTitle className="flex items-center gap-2 text-xl font-semibold">
@@ -551,9 +551,9 @@ export function CampaignsManager() {
                   </DialogTitle>
                 </DialogHeader>
                 
-                <div className="flex-1 flex overflow-hidden">
+                <div className="flex-1 flex flex-col md:flex-row overflow-auto">
                   {/* Coluna Principal - Formulário */}
-                  <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                  <div className="flex-1 min-w-0 overflow-y-auto p-6 space-y-6">
                   {!editingCampaign && (
                     <div className="space-y-4">
                       <Label className="text-lg font-semibold text-gray-800">🎯 Escolha um Template (Opcional)</Label>
@@ -585,7 +585,7 @@ export function CampaignsManager() {
                         📝 Informações Básicas
                       </h3>
                       
-                      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-3">
                           <Label htmlFor="nome" className="text-sm font-semibold text-gray-700">Nome da Campanha *</Label>
                           <Input
@@ -615,7 +615,7 @@ export function CampaignsManager() {
                           </Select>
                         </div>
                         
-                        <div className="space-y-3 lg:col-span-2 xl:col-span-1">
+                        <div className="space-y-3 md:col-span-2">
                           <Label htmlFor="produtos" className="text-sm font-semibold text-gray-700">Produtos (separados por vírgula) *</Label>
                           <Input
                             id="produtos"
@@ -877,8 +877,8 @@ export function CampaignsManager() {
                 </div>
 
                   {/* Coluna Direita - Preview */}
-                  <div className="w-80 xl:w-96 flex-shrink-0 border-l border-gray-200 bg-gray-50">
-                    <div className="sticky top-0 h-full overflow-y-auto p-6">
+                  <div className="w-full md:w-72 xl:w-80 flex-shrink-0 border-t md:border-t-0 md:border-l border-gray-200 bg-gray-50">
+                    <div className="md:sticky md:top-0 h-full overflow-y-auto p-6">
                       <div className="bg-white border rounded-xl shadow-sm p-6">
                         <h3 className="font-semibold mb-6 flex items-center gap-2 text-xl text-gray-800 border-b pb-4">
                           👁️ Preview da Campanha
@@ -887,12 +887,12 @@ export function CampaignsManager() {
                         <div className="space-y-5">
                           <div>
                             <span className="font-semibold text-gray-600 text-sm block mb-2">Nome:</span>
-                            <p className="text-gray-900 break-words bg-gray-50 p-3 rounded-lg border">{formData.nome || 'Não definido'}</p>
+                            <p className="text-gray-900 break-words leading-relaxed bg-gray-50 p-3 rounded-lg border">{formData.nome || 'Não definido'}</p>
                           </div>
                           
                           <div>
                             <span className="font-semibold text-gray-600 text-sm block mb-2">Tipo:</span>
-                            <p className="text-gray-900 bg-gray-50 p-3 rounded-lg border">{formData.tipo_campanha || 'Não definido'}</p>
+                            <p className="text-gray-900 break-words leading-relaxed bg-gray-50 p-3 rounded-lg border">{formData.tipo_campanha || 'Não definido'}</p>
                           </div>
                           
                           <div>
