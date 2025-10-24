@@ -249,7 +249,7 @@ def _build_not_found_response(query: str) -> str:
 def respond(message: str, context: dict | None = None):
     """
     Sofia - Especialista em produtos da 3A Frios
-    Resposta inteligente com sugestões comerciais e personalidade
+    Resposta inteligente com sugestões comerciais, personalidade e insights do Bruno
     """
     text = (message or '').lower()
     acao_especial = None
@@ -261,6 +261,34 @@ def respond(message: str, context: dict | None = None):
     conversation_history = []
     if context and 'conversation_history' in context:
         conversation_history = context['conversation_history']
+
+    # === INSIGHTS DO BRUNO ANALISTA INVISÍVEL ===
+    bruno_insights = context.get('bruno_insights') if context else None
+    sofia_commercial_strategy = ""
+    
+    if bruno_insights:
+        lead_score = bruno_insights.get('lead_score', 0)
+        status = bruno_insights.get('qualificacao_status', 'unknown')
+        segmento = bruno_insights.get('segmento', 'unknown')
+        pessoas = bruno_insights.get('pessoas')
+        
+        logger.info(f"[Sofia] Bruno insights: score={lead_score}, status={status}, segmento={segmento}")
+        
+        # Estratégia comercial baseada nos insights
+        if status == 'hot':
+            sofia_commercial_strategy = "🔥 LEAD QUENTE - Seja assertiva, mostre produtos premium e facilite o fechamento!"
+        elif status == 'warm':
+            sofia_commercial_strategy = "🌡️ LEAD MORNO - Eduque sobre produtos, mostre diferenciais e construa valor!"
+        elif status == 'cold':
+            sofia_commercial_strategy = "❄️ LEAD FRIO - Desperte interesse, mostre variedade e ofereça experimentação!"
+            
+        if pessoas and pessoas > 10:
+            sofia_commercial_strategy += f" | 👥 EVENTO GRANDE ({pessoas} pessoas) - Sugira combo e volume!"
+        elif pessoas and pessoas > 5:
+            sofia_commercial_strategy += f" | 👥 FAMÍLIA MÉDIA ({pessoas} pessoas) - Sugira kit família!"
+            
+        if segmento == 'pessoa_juridica':
+            sofia_commercial_strategy += " | 🏢 B2B - Foque em volume, regularidade e preços especiais!"
 
     # === DETECÇÃO DE TIPOS DE CONSULTA ===
     is_specific = any(k in text for k in ['tem', 'têm', 'teria', 'vende', 'quanto custa', 'preço de', 'valor do', 'qual valor', 'qual preço', 'qual preco'])

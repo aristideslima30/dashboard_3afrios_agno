@@ -145,6 +145,35 @@ def respond(message: str, context: dict | None = None):
     if context and 'conversation_history' in context:
         conversation_history = context['conversation_history']
     
+    # === INSIGHTS DO BRUNO ANALISTA INVISÍVEL ===
+    bruno_insights = context.get('bruno_insights') if context else None
+    bruno_context = ""
+    
+    if bruno_insights:
+        lead_score = bruno_insights.get('lead_score', 0)
+        status = bruno_insights.get('qualificacao_status', 'unknown')
+        segmento = bruno_insights.get('segmento', 'unknown')
+        urgencia = bruno_insights.get('urgencia', 'baixa')
+        sugestoes = bruno_insights.get('sugestoes_agente', [])
+        
+        logger.info(f"[Ana] Bruno insights: score={lead_score}, status={status}, segmento={segmento}")
+        
+        # Adapta abordagem baseada nos insights do Bruno
+        if status == 'hot':
+            bruno_context = f"\n\n🔥 LEAD QUENTE (Score: {lead_score}) - Cliente com alto interesse! Seja proativa e facilite o processo."
+        elif status == 'warm':
+            bruno_context = f"\n\n🌡️ LEAD MORNO (Score: {lead_score}) - Cliente interessado. Seja educativa e tire dúvidas."
+        elif status == 'cold':
+            bruno_context = f"\n\n❄️ LEAD FRIO (Score: {lead_score}) - Cliente explorando. Seja acolhedora e ofereça valor."
+            
+        if urgencia == 'alta':
+            bruno_context += "\n⚡ URGÊNCIA ALTA - Cliente precisa de resposta rápida!"
+        
+        if segmento == 'pessoa_juridica':
+            bruno_context += "\n🏢 CLIENTE B2B - Fale sobre volume, regularidade e condições empresariais."
+        elif segmento == 'evento_especial':
+            bruno_context += "\n🎉 EVENTO ESPECIAL - Ofereça serviço personalizado e atenção aos detalhes."
+    
     logger.info(f"[Atendimento] Ana processando mensagem: '{message[:50]}...' | Histórico: {len(conversation_history)} msgs")
     
     # === DETECÇÃO DE AÇÕES ESPECIAIS ===
@@ -157,6 +186,10 @@ def respond(message: str, context: dict | None = None):
     
     # === CONSTRUÇÃO DO PROMPT CONTEXTUAL ===
     prompt = build_contextual_prompt(PROMPT_BASE, message, context or {}, conversation_history)
+    
+    # Adiciona insights do Bruno ao prompt
+    if bruno_context:
+        prompt += bruno_context
     
     # === TENTATIVA DE RESPOSTA COM IA ===
     try:

@@ -233,7 +233,7 @@ def _format_order_summary(items: List[Dict[str, Any]], totals: Dict[str, Any]) -
 def respond(message: str, context: dict | None = None):
     """
     Roberto - Especialista em pedidos da 3A Frios
-    Gestão inteligente de carrinho e processo de compra
+    Gestão inteligente de carrinho e processo de compra com insights do Bruno
     """
     text = (message or '').lower()
     acao_especial = None
@@ -244,6 +244,36 @@ def respond(message: str, context: dict | None = None):
     # Recuperar contexto
     conversation_history = context.get('conversation_history', []) if context else []
     catalog_items = context.get('catalog_items', []) if context else []
+    
+    # === INSIGHTS DO BRUNO ANALISTA INVISÍVEL ===
+    bruno_insights = context.get('bruno_insights') if context else None
+    roberto_sales_approach = ""
+    
+    if bruno_insights:
+        lead_score = bruno_insights.get('lead_score', 0)
+        status = bruno_insights.get('qualificacao_status', 'unknown')
+        segmento = bruno_insights.get('segmento', 'unknown')
+        urgencia = bruno_insights.get('urgencia', 'baixa')
+        pessoas = bruno_insights.get('pessoas')
+        
+        logger.info(f"[Roberto] Bruno insights: score={lead_score}, status={status}, urgencia={urgencia}")
+        
+        # Abordagem de vendas baseada nos insights
+        if status == 'hot':
+            roberto_sales_approach = "🔥 LEAD QUENTE - Facilite o fechamento, ofereça condições especiais!"
+        elif status == 'warm':
+            roberto_sales_approach = "🌡️ LEAD MORNO - Construa valor, calcule tudo detalhadamente!"
+        elif status == 'cold':
+            roberto_sales_approach = "❄️ LEAD FRIO - Seja educativo, mostre processo simples!"
+            
+        if urgencia == 'alta':
+            roberto_sales_approach += " | ⚡ URGENTE - Priorize rapidez no atendimento!"
+            
+        if pessoas and pessoas > 15:
+            roberto_sales_approach += f" | 👥 EVENTO GRANDE ({pessoas} pessoas) - Sugira desconto por volume!"
+            
+        if segmento == 'pessoa_juridica':
+            roberto_sales_approach += " | 🏢 B2B - Ofereça condições empresariais e faturamento!"
     
     logger.info(f"[Pedidos] Roberto com {len(catalog_items)} produtos no catálogo")
     

@@ -483,6 +483,40 @@ async def handle_message(payload: dict) -> dict:
         logger.error(f"[Orchestrator] Erro ao processar resposta do agente: {str(e)}", exc_info=True)
         raise
 
+    # === PROCESSADOR DE CAMPANHAS ===
+    # Se agente gerou ação especial, processa automações
+    acao_especial = svc.get('acao_especial')
+    campaign_result = None
+    if acao_especial and agente_responsavel == 'Marketing':
+        try:
+            from ..integrations.campaign_processor import process_campaign_action
+            
+            # Contexto para o processador
+            campaign_context = {
+                'mensagem_cliente': mensagem,
+                'agente_responsavel': agente_responsavel,
+                'historico_recente': contexto_curto[:4]  # Últimas 4 interações
+            }
+            
+            campaign_result = await process_campaign_action(
+                acao_especial=acao_especial,
+                cliente_data={
+                    'telefone': telefone_normalizado or telefone_raw,
+                    'id': cliente_id_raw,
+                },
+                bruno_insights=bruno_insights or {},
+                context=campaign_context
+            )
+            
+            if campaign_result and campaign_result.get('ok'):
+                logger.info(f"[Campaign Processor] Processou {acao_especial}: {len(campaign_result.get('acoes_executadas', []))} ações executadas")
+            else:
+                logger.warning(f"[Campaign Processor] Falha ao processar {acao_especial}: {campaign_result}")
+                
+        except Exception as e:
+            logger.error(f"[Campaign Processor] Erro ao processar {acao_especial}: {e}")
+            campaign_result = {"ok": False, "error": str(e)}
+
     contexto_curto = []
     for item in historico[:6]:
         mc = (item.get('mensagem_cliente') or '').strip()
@@ -508,7 +542,8 @@ async def handle_message(payload: dict) -> dict:
         'contexto_conversa': contexto_curto,
         'memory_used': bool(historico),
         'bruno_insights': bruno_insights,  # Insights do Bruno Invisível
-        'info': 'Backend FastAPI: Orquestrador v3 (Bruno Analista Invisível + memória + GoogleCtx)',
+        'campaign_result': campaign_result,  # Resultado do processador de campanhas
+        'info': 'Backend FastAPI: Orquestrador v3 (Bruno Analista Invisível + Campaign Processor + memória + GoogleCtx)',
     }
 
 

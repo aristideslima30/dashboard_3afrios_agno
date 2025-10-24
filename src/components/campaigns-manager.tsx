@@ -7,6 +7,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import {
   AlertDialog,
@@ -19,7 +28,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Plus, Calendar, Target, Users, Edit, Trash2, AlertCircle } from 'lucide-react'
+import { Plus, Calendar, Target, Users, Edit, Trash2, AlertCircle, Settings, Zap, Info } from 'lucide-react'
 import { useCampaigns, useActiveCampaigns, useCreateCampaign } from '@/hooks/use-campaigns'
 import { CampanhaMarketing } from '@/lib/supabase'
 
@@ -30,6 +39,68 @@ interface FormData {
   data_inicio: string
   data_fim: string
   segmento: string
+}
+
+// 🎯 Tipos de campanhas automáticas disponíveis pela Camila
+const CAMPAIGN_TYPES = [
+  {
+    id: 'CAMPANHA_B2B',
+    title: '🏢 Campanha B2B',
+    description: 'Gera propostas comerciais, cupons B2B e agendamento de follow-up para empresas',
+    actions: ['Proposta comercial', 'Cupom desconto', 'Follow-up telefônico']
+  },
+  {
+    id: 'APRESENTAR_B2B',
+    title: '📋 Apresentação B2B',
+    description: 'Envia catálogo empresarial e agenda apresentação comercial',
+    actions: ['Catálogo B2B', 'Agendamento apresentação']
+  },
+  {
+    id: 'EVENTO_EXPRESS',
+    title: '⚡ Evento Express',
+    description: 'Orçamento rápido e checklist para eventos pequenos',
+    actions: ['Orçamento automático', 'Checklist evento', 'Confirmação']
+  },
+  {
+    id: 'PLANEJAMENTO_EVENTO',
+    title: '🎉 Planejamento de Evento',
+    description: 'Proposta detalhada, cronograma e acompanhamento para eventos grandes',
+    actions: ['Proposta evento', 'Cronograma', 'Acompanhamento', 'Lembretes']
+  },
+  {
+    id: 'CLIENTE_PREMIUM',
+    title: '⭐ Cliente Premium',
+    description: 'Cupom VIP, programa de pontos e atendimento exclusivo',
+    actions: ['Cupom VIP', 'Programa pontos', 'Atendimento exclusivo']
+  },
+  {
+    id: 'BEM_VINDO',
+    title: '👋 Boas-vindas',
+    description: 'Cupom primeira compra, guia de produtos e newsletter',
+    actions: ['Cupom boas-vindas', 'Guia produtos', 'Newsletter']
+  },
+  {
+    id: 'NEWSLETTER_OFERTAS',
+    title: '📧 Newsletter',
+    description: 'Cadastro automático em ofertas e promoções semanais',
+    actions: ['Newsletter automática', 'Ofertas personalizadas']
+  },
+  {
+    id: 'OFERTAS_CONTEXTUAIS',
+    title: '🎯 Ofertas Contextuais',
+    description: 'Ofertas baseadas no contexto da conversa e interesses do cliente',
+    actions: ['Ofertas personalizadas', 'Cupons contextuais']
+  }
+]
+
+interface AutomationSettings {
+  enabled: boolean
+  selectedCampaigns: string[]
+  globalSettings: {
+    processAllMessages: boolean
+    onlyHighScore: boolean
+    scoreThreshold: number
+  }
 }
 
 export function CampaignsManager() {
@@ -48,6 +119,54 @@ export function CampaignsManager() {
     segmento: ''
   })
   const [jsonError, setJsonError] = useState<string>('')
+  
+  // 🤖 Estados para automação de campanhas
+  const [automationSettings, setAutomationSettings] = useState<AutomationSettings>({
+    enabled: true,
+    selectedCampaigns: ['CAMPANHA_B2B', 'BEM_VINDO', 'CLIENTE_PREMIUM'],
+    globalSettings: {
+      processAllMessages: true,
+      onlyHighScore: false,
+      scoreThreshold: 5
+    }
+  })
+  
+  const [activeTab, setActiveTab] = useState('campaigns')
+  const [selectedCampaignType, setSelectedCampaignType] = useState('')
+
+  // 🔧 Funções para automação
+  const handleAutomationToggle = (enabled: boolean) => {
+    setAutomationSettings(prev => ({
+      ...prev,
+      enabled
+    }))
+    console.log('🤖 Automação de campanhas:', enabled ? 'ATIVADA' : 'DESATIVADA')
+  }
+
+  const handleCampaignTypeToggle = (campaignId: string, enabled: boolean) => {
+    setAutomationSettings(prev => ({
+      ...prev,
+      selectedCampaigns: enabled 
+        ? [...prev.selectedCampaigns, campaignId]
+        : prev.selectedCampaigns.filter(id => id !== campaignId)
+    }))
+    console.log(`🎯 Campanha ${campaignId}:`, enabled ? 'ATIVADA' : 'DESATIVADA')
+  }
+
+  const handleCampaignTypeSelect = (typeId: string) => {
+    const selectedType = CAMPAIGN_TYPES.find(type => type.id === typeId)
+    if (selectedType) {
+      setSelectedCampaignType(typeId)
+      setFormData(prev => ({
+        ...prev,
+        nome: selectedType.title,
+        segmento: JSON.stringify({
+          "tipo_campanha": typeId,
+          "automatica": true
+        }, null, 2)
+      }))
+    }
+  }
 
   const resetForm = () => {
     setFormData({
@@ -60,6 +179,7 @@ export function CampaignsManager() {
     })
     setJsonError('')
     setEditingCampaign(null)
+    setSelectedCampaignType('')
   }
 
   const validateJson = (jsonString: string): boolean => {
@@ -200,16 +320,26 @@ export function CampaignsManager() {
             Campanhas de Marketing
           </CardTitle>
           
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open)
-            if (!open) resetForm()
-          }}>
-            <DialogTrigger asChild>
-              <Button className="bg-orange-500 hover:bg-orange-600">
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Campanha
-              </Button>
-            </DialogTrigger>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Zap className={`h-4 w-4 ${automationSettings.enabled ? 'text-green-500' : 'text-gray-400'}`} />
+              <span className="text-sm">Automação</span>
+              <Switch 
+                checked={automationSettings.enabled}
+                onCheckedChange={handleAutomationToggle}
+              />
+            </div>
+            
+            <Dialog open={isDialogOpen} onOpenChange={(open) => {
+              setIsDialogOpen(open)
+              if (!open) resetForm()
+            }}>
+              <DialogTrigger asChild>
+                <Button className="bg-orange-500 hover:bg-orange-600">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Campanha
+                </Button>
+              </DialogTrigger>
             
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
@@ -315,6 +445,7 @@ export function CampaignsManager() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
         
         <div className="flex gap-4 text-sm">
@@ -326,10 +457,123 @@ export function CampaignsManager() {
             <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
             <span>{campaigns?.length || 0} Total</span>
           </div>
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${automationSettings.enabled ? 'bg-orange-500' : 'bg-red-500'}`}></div>
+            <span>{automationSettings.selectedCampaigns.length} Automações Ativas</span>
+          </div>
         </div>
       </CardHeader>
       
       <CardContent>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="campaigns">📋 Campanhas</TabsTrigger>
+            <TabsTrigger value="automation" className="relative">
+              <Settings className="h-4 w-4 mr-2" />
+              🤖 Automação
+              {automationSettings.enabled && (
+                <div className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full"></div>
+              )}
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="automation" className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+                <div>
+                  <h3 className="font-medium">🤖 Automação de Campanhas da Camila</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Permite que a Camila execute automaticamente campanhas baseadas nas conversas dos clientes
+                  </p>
+                </div>
+                <Switch 
+                  checked={automationSettings.enabled}
+                  onCheckedChange={handleAutomationToggle}
+                />
+              </div>
+              
+              {automationSettings.enabled && (
+                <>
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium mb-3">⚙️ Configurações Globais</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label>Processar todas as mensagens</Label>
+                        <Switch 
+                          checked={automationSettings.globalSettings.processAllMessages}
+                          onCheckedChange={(checked) => 
+                            setAutomationSettings(prev => ({
+                              ...prev,
+                              globalSettings: { ...prev.globalSettings, processAllMessages: checked }
+                            }))
+                          }
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <Label>Apenas leads com score alto</Label>
+                        <Switch 
+                          checked={automationSettings.globalSettings.onlyHighScore}
+                          onCheckedChange={(checked) => 
+                            setAutomationSettings(prev => ({
+                              ...prev,
+                              globalSettings: { ...prev.globalSettings, onlyHighScore: checked }
+                            }))
+                          }
+                        />
+                      </div>
+                      
+                      {automationSettings.globalSettings.onlyHighScore && (
+                        <div className="flex items-center gap-4">
+                          <Label>Score mínimo:</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="10"
+                            value={automationSettings.globalSettings.scoreThreshold}
+                            onChange={(e) => 
+                              setAutomationSettings(prev => ({
+                                ...prev,
+                                globalSettings: { ...prev.globalSettings, scoreThreshold: parseInt(e.target.value) }
+                              }))
+                            }
+                            className="w-20"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium mb-3">🎯 Tipos de Campanha Automática</h4>
+                    <div className="space-y-3">
+                      {CAMPAIGN_TYPES.map((campaignType) => (
+                        <div key={campaignType.id} className="flex items-start gap-3 p-3 border rounded hover:bg-gray-50 transition-colors">
+                          <Switch 
+                            checked={automationSettings.selectedCampaigns.includes(campaignType.id)}
+                            onCheckedChange={(checked) => handleCampaignTypeToggle(campaignType.id, checked)}
+                          />
+                          <div className="flex-1">
+                            <h5 className="font-medium text-sm">{campaignType.title}</h5>
+                            <p className="text-xs text-gray-600 mt-1">{campaignType.description}</p>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {campaignType.actions.map((action, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {action}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="campaigns">
         <div className="space-y-4">
           {campaigns && campaigns.length > 0 ? (
             campaigns.map((campaign) => (
@@ -349,6 +593,12 @@ export function CampaignsManager() {
                         <Badge className="bg-green-500 text-white">Ativa</Badge>
                       ) : (
                         <Badge variant="secondary">Inativa</Badge>
+                      )}
+                      {(campaign.segmento as any)?.automatica && (
+                        <Badge className="bg-orange-500 text-white">
+                          <Zap className="h-3 w-3 mr-1" />
+                          🤖 Automática
+                        </Badge>
                       )}
                       <span className="text-sm text-gray-600">
                         {campaign.produtos.join(', ')}
@@ -430,6 +680,8 @@ export function CampaignsManager() {
             </div>
           )}
         </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   )
