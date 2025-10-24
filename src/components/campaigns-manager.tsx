@@ -533,7 +533,7 @@ export function CampaignsManager() {
                 </Button>
               </DialogTrigger>
             
-            <DialogContent className="max-w-none w-screen max-h-screen h-screen overflow-y-auto p-4 md:p-6 lg:p-8 xl:p-10 m-0">
+            <DialogContent className="w-[1400px] max-w-[95vw] h-[90vh] max-h-[90vh] overflow-y-auto p-6 m-0">
               <DialogHeader className="pb-4 md:pb-6">
                 <DialogTitle className="flex items-center gap-2 text-xl md:text-2xl">
                   {editingCampaign ? (
