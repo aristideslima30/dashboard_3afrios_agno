@@ -13,6 +13,7 @@ from .agents.orchestrator import handle_message
 from .integrations.evolution import send_text
 from .integrations.supabase_store import persist_conversation
 from .integrations.webhook_parser import parse_incoming_events
+from .api import campaigns
 
 # após a inicialização do app
 app = FastAPI(title="3A Frios Backend", version="0.1.0")
@@ -40,6 +41,9 @@ app.add_middleware(
 
 logger.info(f"CORS habilitado para: {ALLOWED_ORIGINS}")
 logger.info(f"Backend iniciado na porta {PORT}")
+
+# Registrar rotas da API de campanhas
+app.include_router(campaigns.router, prefix="/api/campanhas", tags=["campanhas"])
 
 
 # função: webhook (endpoint /webhook)
