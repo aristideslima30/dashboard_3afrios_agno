@@ -6,6 +6,8 @@ from ..config import SUPABASE_URL, SUPABASE_SERVICE_ROLE
 import typing as _t
 from .evolution import _sanitize_text, _fix_mojibake
 
+logger = logging.getLogger(__name__)
+
 
 async def _client() -> httpx.AsyncClient:
     headers = {
@@ -57,6 +59,81 @@ async def _create_cliente_stub(telefone: str) -> dict | None:
             data = resp.json() or []
             return data[0] if data else None
         return None
+
+
+async def update_cliente_with_bruno_insights(telefone: str, bruno_insights: dict) -> bool:
+    """
+    Atualiza dados do cliente no banco com insights do Bruno Analista Invisível
+    """
+    if not (SUPABASE_URL and SUPABASE_SERVICE_ROLE) or not bruno_insights:
+        return False
+    
+    try:
+        # Busca cliente
+        cliente = await _find_cliente_by_telefone(telefone)
+        if not cliente:
+            return False
+        
+        cliente_id = cliente.get('id')
+        if not cliente_id:
+            return False
+        
+        # Prepara dados para atualização
+        now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        
+        # Mapeia status do Bruno para status do banco
+        qualificacao_status = bruno_insights.get('qualificacao_status', 'cold')
+        lead_status_mapping = {
+            'hot': 'pronto_para_comprar',
+            'warm': 'interessado', 
+            'cold': 'novo'
+        }
+        
+        update_data = {
+            "lead_score": bruno_insights.get('lead_score', 0),
+            "lead_status": lead_status_mapping.get(qualificacao_status, 'novo'),
+            "updated_at": now
+        }
+        
+        # Atualiza informações extras se disponíveis
+        segmento = bruno_insights.get('segmento')
+        if segmento == 'pessoa_juridica':
+            update_data['interesse_declarado'] = 'B2B - Fornecimento empresarial'
+        elif segmento == 'evento_especial':
+            update_data['interesse_declarado'] = 'Evento especial'
+        
+        pessoas = bruno_insights.get('pessoas')
+        if pessoas:
+            # Estima valor potencial baseado no número de pessoas
+            valor_estimado = pessoas * 25  # R$ 25 por pessoa (estimativa)
+            update_data['valor_potencial'] = valor_estimado
+            
+        urgencia = bruno_insights.get('urgencia')
+        if urgencia == 'alta':
+            update_data['frequencia_compra'] = 'Urgente'
+        elif urgencia == 'media':
+            update_data['frequencia_compra'] = 'Semanal'
+        else:
+            update_data['frequencia_compra'] = 'Eventual'
+        
+        # Executa atualização
+        async with await _client() as c:
+            resp = await c.patch(
+                f"/clientes_delivery",
+                params={"id": f"eq.{cliente_id}"},
+                json=update_data
+            )
+            
+            if 200 <= resp.status_code < 300:
+                logger.info(f"[Bruno DB] Cliente {telefone} atualizado: score={update_data['lead_score']}, status={update_data['lead_status']}")
+                return True
+            else:
+                logger.error(f"[Bruno DB] Erro ao atualizar cliente {telefone}: {resp.status_code}")
+                return False
+                
+    except Exception as e:
+        logger.error(f"[Bruno DB] Erro ao atualizar insights: {e}")
+        return False
 
 
 async def _ensure_cliente_id(telefone: str) -> str:
@@ -183,6 +260,15 @@ async def persist_conversation(result: dict) -> dict:
                 "alt_hyphen": {"status": r3.status_code, "body": r3.text},
                 "alt_hyphen_min": {"status": r3b.status_code, "body": r3b.text},
             })
+
+    # === SALVA INSIGHTS DO BRUNO NO BANCO ===
+    # Atualiza dados do cliente com análise do Bruno Analista Invisível
+    bruno_insights = result.get("bruno_insights")
+    if bruno_insights and telefone:
+        try:
+            await update_cliente_with_bruno_insights(telefone, bruno_insights)
+        except Exception as e:
+            logger.error(f"[Bruno DB] Erro ao salvar insights: {e}")
 
     return {"ok": inserted > 0, "inserted": inserted, "results": results, "errors": errors}
 

@@ -18,6 +18,95 @@ class AgentContext:
     
 logger = logging.getLogger("3afrios.orchestrator")
 
+def _bruno_analyze_conversation(message: str, conversation_history: List[Dict], context: Dict) -> Dict[str, Any]:
+    """
+    Bruno Analista Invisível - Qualifica leads silenciosamente em background
+    Analisa conversas e gera insights para outros agentes
+    """
+    try:
+        # Extrai dados da conversa para análise
+        recent_messages = [item.get('mensagem_cliente', '') for item in conversation_history[-5:]]
+        full_conversation = ' '.join(recent_messages + [message]).lower()
+        
+        # === ANÁLISE DE PERFIL DO CLIENTE ===
+        
+        # Detecta segmento
+        segmento = 'pessoa_fisica'  # default
+        if any(word in full_conversation for word in ['empresa', 'restaurante', 'cnpj', 'corporativo']):
+            segmento = 'pessoa_juridica'
+        elif any(word in full_conversation for word in ['casamento', 'festa', 'evento', 'formatura']):
+            segmento = 'evento_especial'
+        
+        # Detecta urgência
+        urgencia = 'baixa'
+        if any(word in full_conversation for word in ['hoje', 'amanhã', 'urgente', 'rápido']):
+            urgencia = 'alta'
+        elif any(word in full_conversation for word in ['semana', 'próxima']):
+            urgencia = 'media'
+        
+        # Detecta interesse de compra
+        interesse_compra = 0
+        if any(word in full_conversation for word in ['quero', 'preciso', 'vou levar', 'comprar']):
+            interesse_compra += 3
+        if any(word in full_conversation for word in ['quanto', 'preço', 'valor', 'custa']):
+            interesse_compra += 2
+        if any(word in full_conversation for word in ['produto', 'catálogo', 'tem']):
+            interesse_compra += 1
+            
+        # Detecta quantidade de pessoas
+        pessoas = None
+        import re
+        pessoas_match = re.search(r'(\d+)\s*pessoas?', full_conversation)
+        if pessoas_match:
+            pessoas = int(pessoas_match.group(1))
+        
+        # === SCORE DO LEAD ===
+        lead_score = min(10, interesse_compra)
+        if urgencia == 'alta':
+            lead_score += 2
+        if segmento == 'pessoa_juridica':
+            lead_score += 1
+        if pessoas and pessoas > 20:
+            lead_score += 1
+            
+        # === INSIGHTS PARA OS AGENTES ===
+        insights = {
+            'lead_score': lead_score,
+            'segmento': segmento,
+            'urgencia': urgencia,
+            'interesse_compra': interesse_compra,
+            'pessoas': pessoas,
+            'qualificacao_status': 'hot' if lead_score >= 7 else 'warm' if lead_score >= 4 else 'cold',
+            'sugestoes_agente': []
+        }
+        
+        # Sugestões específicas por score
+        if lead_score >= 7:  # Hot lead
+            insights['sugestoes_agente'].append("🔥 LEAD QUENTE - Priorizar fechamento")
+            insights['sugestoes_agente'].append("💰 Oferecer condições especiais")
+            if urgencia == 'alta':
+                insights['sugestoes_agente'].append("⚡ URGENTE - Processar rapidamente")
+        elif lead_score >= 4:  # Warm lead  
+            insights['sugestoes_agente'].append("🌡️ LEAD MORNO - Nutrir interesse")
+            insights['sugestoes_agente'].append("📋 Fazer perguntas qualificadoras")
+        else:  # Cold lead
+            insights['sugestoes_agente'].append("❄️ LEAD FRIO - Educar sobre produtos")
+            insights['sugestoes_agente'].append("🎁 Oferecer valor antes da venda")
+            
+        # Sugestões específicas por segmento
+        if segmento == 'pessoa_juridica':
+            insights['sugestoes_agente'].append("🏢 B2B - Falar sobre volume e regularidade")
+        elif segmento == 'evento_especial':
+            insights['sugestoes_agente'].append("🎉 EVENTO - Oferecer serviço completo")
+            
+        logger.info(f"[Bruno Invisible] Lead analisado: score={lead_score}, segmento={segmento}, status={insights['qualificacao_status']}")
+        
+        return insights
+        
+    except Exception as e:
+        logger.error(f"[Bruno Invisible] Erro na análise: {e}")
+        return None
+
 
 INTENT_KEYWORDS: Dict[str, List[str]] = {
     'Catálogo': [
@@ -36,10 +125,6 @@ INTENT_KEYWORDS: Dict[str, List[str]] = {
         'troca', 'devolução', 'prazo', 'entrega', 'horário', 'atendimento', 
         'suporte', 'reclamação', 'endereço', 'problema', 'ajuda', 'dúvida',
         'contato', 'telefone', 'email'
-    ],
-    'Qualificação': [
-        'qualificar', 'interesse', 'orçamento', 'perfil', 'segmento',
-        'informação', 'informações', 'detalhes'
     ],
     'Marketing': [
         'campanha', 'promoção', 'promocao', 'desconto', 'marketing',
@@ -173,20 +258,18 @@ AGENTES DISPONÍVEIS:
 - Catálogo: Consultas sobre produtos, preços, disponibilidade ("tem carne?", "quais queijos?", "catalogo")
 - Pedidos: Intenção clara de compra/solicitação ("quero 1kg", "vou levar", "me vende", "fazer pedido")
 - Atendimento: Saudações, dúvidas gerais, reclamações, informações da empresa
-- Qualificação: Interesse comercial, parcerias, revenda, representação
 - Marketing: Promoções, ofertas, descontos, campanhas
 
 REGRAS DE CLASSIFICAÇÃO:
 1. PEDIDOS tem prioridade quando há verbos de ação + produto/quantidade
 2. CATÁLOGO para perguntas sobre produtos sem intenção de compra imediata
 3. ATENDIMENTO para conversas gerais, problemas, informações
-4. Use o contexto da conversa para entender a continuidade
 
 {conversation_context}
 
 Mensagem atual: "{message}"
 
-Responda APENAS com o nome do agente: Catálogo, Pedidos, Atendimento, Qualificação ou Marketing."""
+Responda APENAS com o nome do agente: Catálogo, Pedidos, Atendimento ou Marketing."""
 
     try:
         from ..integrations.openai_client import generate_response
@@ -194,7 +277,7 @@ Responda APENAS com o nome do agente: Catálogo, Pedidos, Atendimento, Qualifica
         
         # Limpar resposta e validar
         intent = response.strip().replace('"', '').replace("'", '')
-        valid_intents = ['Catálogo', 'Pedidos', 'Atendimento', 'Qualificação', 'Marketing']
+        valid_intents = ['Catálogo', 'Pedidos', 'Atendimento', 'Marketing']
         
         if intent in valid_intents:
             return intent
@@ -371,13 +454,24 @@ async def handle_message(payload: dict) -> dict:
         'Catálogo': catalog,
         'Pedidos': pedidos,
         'Atendimento': atendimento,
-        'Qualificação': qualificacao,
         'Marketing': marketing,
     }
     agent_mod = mapping.get(agente_responsavel, atendimento)
 
     # NOVO: contexto do Google para o agente
     contexto_google = build_context_for_intent(agente_responsavel)
+
+    # === BRUNO ANALISTA INVISÍVEL ===
+    # Análise silenciosa em background para qualificar leads
+    bruno_insights = None
+    try:
+        bruno_insights = _bruno_analyze_conversation(mensagem, historico, contexto_google)
+        if bruno_insights:
+            # Injeta insights do Bruno no contexto do agente
+            contexto_google['bruno_insights'] = bruno_insights
+            logger.info(f"[Bruno Invisible] Insights gerados: score={bruno_insights.get('lead_score', 'N/A')}, status={bruno_insights.get('qualificacao_status', 'N/A')}")
+    except Exception as e:
+        logger.error(f"[Bruno Invisible] Erro na análise: {e}")
 
     # Passa contexto para o agente
     try:
@@ -413,7 +507,8 @@ async def handle_message(payload: dict) -> dict:
         'acao_especial': svc.get('acao_especial'),
         'contexto_conversa': contexto_curto,
         'memory_used': bool(historico),
-        'info': 'Backend FastAPI: Orquestrador v2 (memória curta + viés de histórico + GoogleCtx)',
+        'bruno_insights': bruno_insights,  # Insights do Bruno Invisível
+        'info': 'Backend FastAPI: Orquestrador v3 (Bruno Analista Invisível + memória + GoogleCtx)',
     }
 
 
