@@ -587,21 +587,21 @@ export function CampaignsManager() {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-3">
-                          <Label htmlFor="nome" className="text-sm font-semibold text-gray-700 block">Nome da Campanha *</Label>
+                          <Label htmlFor="nome" className="text-sm font-semibold text-gray-700 block h-5 leading-5">Nome da Campanha *</Label>
                           <Input
                             id="nome"
                             value={formData.nome}
                             onChange={(e) => setFormData({...formData, nome: e.target.value})}
                             placeholder="Ex: Promoção Queijos Premium"
                             required
-                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm px-4"
+                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm px-4 w-full"
                           />
                         </div>
                         
                         <div className="space-y-3">
-                          <Label htmlFor="tipo_campanha" className="text-sm font-semibold text-gray-700 block">Tipo de Campanha</Label>
+                          <Label htmlFor="tipo_campanha" className="text-sm font-semibold text-gray-700 block h-5 leading-5">Tipo de Campanha</Label>
                           <Select value={formData.tipo_campanha} onValueChange={(value) => setFormData({...formData, tipo_campanha: value})}>
-                            <SelectTrigger className="h-12 border-gray-300 focus:border-blue-500 text-sm px-4">
+                            <SelectTrigger className="h-12 border-gray-300 focus:border-blue-500 text-sm px-4 w-full">
                               <SelectValue placeholder="Selecione o tipo" />
                             </SelectTrigger>
                             <SelectContent>
