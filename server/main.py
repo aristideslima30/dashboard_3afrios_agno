@@ -321,11 +321,6 @@ async def evolution_webhook(request: Request):
             telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
             texto_out = result.get("resposta_bot")
 
-            # Envio Evolution com dedupe de saída seguro
-            telefone_out = (result.get("cliente") or {}).get("telefone") or telefone
-            texto_out = result.get("resposta_bot")
-
-            # Inicializa/prune cache de saídas (sem criar variável local)
             global _SENT_CACHE
             now2 = time.time()
             for k, exp in list(_SENT_CACHE.items()):
@@ -341,7 +336,7 @@ async def evolution_webhook(request: Request):
                     evo = await send_text(telefone_out, texto_out)
                     result["enviado_via_evolution"] = bool(evo.get("sent"))
                     result["evolution_status"] = evo
-                    _SENT_CACHE[send_sig] = time.time() + ttl_seconds
+                    _SENT_CACHE[send_sig] = time.time() + DEDUPE_TTL_SECONDS
 
             try:
                 supa = await persist_conversation(result)

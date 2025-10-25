@@ -225,3 +225,91 @@ async def send_text(telefone: str, texto: str) -> dict:
         except Exception:
             pass
         return {"sent": False, "reason": "all_variants_failed", "classification": reason, "attempts": attempts}
+
+
+async def send_text_chat(chat_id: str, texto: str) -> dict:
+    import json
+    import logging
+    import httpx
+
+    if not EVOLUTION_ENABLED:
+        return {"sent": False, "reason": "disabled"}
+    if not (EVOLUTION_BASE_URL and EVOLUTION_API_KEY and EVOLUTION_INSTANCE_ID and EVOLUTION_SEND_TEXT_PATH):
+        return {"sent": False, "reason": "missing_config"}
+
+    safe_text = _normalize_ptbr(_fix_mojibake(_sanitize_text(texto)))
+    chat_id = str(chat_id or "").strip()
+    if not safe_text:
+        return {"sent": False, "reason": "empty_text"}
+    if not chat_id or "@" not in chat_id:
+        return {"sent": False, "reason": "invalid_chat_id"}
+    # Não suportamos envio para grupos/canais
+    if chat_id.endswith("@g.us") or chat_id.endswith("@broadcast") or chat_id.endswith("@newsletter"):
+        return {"sent": False, "reason": "unsupported_chat_type"}
+
+    url_base = f"{EVOLUTION_BASE_URL.rstrip('/')}/{EVOLUTION_SEND_TEXT_PATH.lstrip('/')}"
+    inst = _normalize_instance_id(EVOLUTION_INSTANCE_ID or "")
+    url_with_instance = f"{url_base.rstrip('/')}/{inst}"
+    headers_apikey = {"Content-Type": "application/json; charset=utf-8", "apikey": EVOLUTION_API_KEY}
+    headers_bearer = {"Content-Type": "application/json; charset=utf-8", "Authorization": f"Bearer {EVOLUTION_API_KEY}"}
+
+    variants = []
+    # Prioriza chatId explícito (funciona para @s.whatsapp.net e @lid)
+    variants.append(("apikey_path_chatId_text", url_with_instance, headers_apikey, {"chatId": chat_id, "text": safe_text}))
+    variants.append(("apikey_path_chatId_textMessage", url_with_instance, headers_apikey, {"chatId": chat_id, "textMessage": {"text": safe_text}}))
+    variants.append(("apikey_path_chatId_message", url_with_instance, headers_apikey, {"chatId": chat_id, "message": safe_text}))
+
+    # Sem instância no path
+    variants.append(("apikey_noinst_chatId_text", url_base, headers_apikey, {"chatId": chat_id, "text": safe_text, "instance": inst}))
+    variants.append(("apikey_noinst_chatId_message", url_base, headers_apikey, {"chatId": chat_id, "message": safe_text, "instance": inst}))
+
+    # Bearer
+    variants.append(("bearer_path_chatId_text", url_with_instance, headers_bearer, {"chatId": chat_id, "text": safe_text}))
+    variants.append(("bearer_noinst_chatId_text", url_base, headers_bearer, {"chatId": chat_id, "text": safe_text, "instanceId": inst}))
+    variants.append(("bearer_noinst_chatId_message", url_base, headers_bearer, {"chatId": chat_id, "message": safe_text, "instanceId": inst}))
+
+    # v1 caminhos alternativos
+    if "/api/" not in EVOLUTION_SEND_TEXT_PATH:
+        url_v1_no_instance = f"{EVOLUTION_BASE_URL.rstrip('/')}/api/v1/{EVOLUTION_SEND_TEXT_PATH.lstrip('/')}"
+        url_v1_with_instance = f"{url_v1_no_instance.rstrip('/')}/{inst}"
+        variants.append(("apikey_v1_path_chatId_text", url_v1_with_instance, headers_apikey, {"chatId": chat_id, "text": safe_text}))
+        variants.append(("apikey_v1_noinst_chatId_text", url_v1_no_instance, headers_apikey, {"chatId": chat_id, "text": safe_text, "instance": inst}))
+        variants.append(("bearer_v1_noinst_chatId_text", url_v1_no_instance, headers_bearer, {"chatId": chat_id, "text": safe_text, "instanceId": inst}))
+
+    # Caminho alternativo message/send
+    url_alt_send = f"{EVOLUTION_BASE_URL.rstrip('/')}/message/send"
+    url_alt_send_with_instance = f"{url_alt_send.rstrip('/')}/{inst}"
+    variants.append(("apikey_alt_send_chatId_text", url_alt_send_with_instance, headers_apikey, {"chatId": chat_id, "text": safe_text}))
+    variants.append(("apikey_alt_send_noinst_chatId_text", url_alt_send, headers_apikey, {"chatId": chat_id, "text": safe_text, "instance": inst}))
+
+    # Query-string variantes
+    url_with_instance_q_apikey = f"{url_with_instance}?apikey={EVOLUTION_API_KEY}"
+    url_no_instance_q_apikey = f"{url_base}?apikey={EVOLUTION_API_KEY}"
+    url_with_instance_q_token = f"{url_with_instance}?token={EVOLUTION_API_KEY}"
+    url_no_instance_q_token = f"{url_base}?token={EVOLUTION_API_KEY}"
+
+    variants.append(("apikey_qs_path_chatId_text", url_with_instance_q_apikey, headers_apikey, {"chatId": chat_id, "text": safe_text}))
+    variants.append(("token_qs_path_chatId_text", url_with_instance_q_token, headers_apikey, {"chatId": chat_id, "text": safe_text}))
+    variants.append(("apikey_qs_noinst_chatId_text", url_no_instance_q_apikey, headers_apikey, {"chatId": chat_id, "text": safe_text, "instance": inst}))
+    variants.append(("token_qs_noinst_chatId_text", url_no_instance_q_token, headers_apikey, {"chatId": chat_id, "text": safe_text, "instance": inst}))
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        attempts = []
+        for variant, url, headers, payload in variants:
+            try:
+                resp = await client.post(url, json=payload, headers=headers)
+                ct = resp.headers.get("content-type", "")
+                data = resp.json() if ct.startswith("application/json") else {"body": resp.text}
+                if 200 <= resp.status_code < 300:
+                    return {"sent": True, "status_code": resp.status_code, "data": data, "variant": variant, "url": url}
+                attempts.append({"variant": variant, "status_code": resp.status_code, "data": data, "url": url})
+            except Exception as e:
+                attempts.append({"variant": variant, "error": str(e), "url": url})
+        reason = _classify_attempts(attempts)
+        try:
+            lg = logging.getLogger("3afrios.backend")
+            sample = [{"variant": a.get("variant"), "status": a.get("status_code"), "url": a.get("url")} for a in attempts[:3]]
+            lg.warning(f"Evolution send_chat failed: reason={reason} attempts={len(attempts)} sample={json.dumps(sample, ensure_ascii=False)}")
+        except Exception:
+            pass
+        return {"sent": False, "reason": "all_variants_failed", "classification": reason, "attempts": attempts}
