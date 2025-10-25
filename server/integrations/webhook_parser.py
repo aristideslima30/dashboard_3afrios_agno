@@ -55,6 +55,22 @@ def _extract_evolution(payload: dict) -> _t.List[dict]:
         elif isinstance(payload.get("data"), dict) and payload.get("event") == "messages.upsert":
             logger.debug("[WebhookParser] Evolution: encontrado formato messages.upsert")
             items = [payload["data"]]
+        elif isinstance(payload.get("data"), dict) and payload.get("event") == "messages.update":
+            logger.debug("[WebhookParser] Evolution: encontrado formato messages.update")
+            # Para messages.update, o texto pode estar em lugares diferentes
+            data = payload["data"]
+            # Tenta criar item com dados disponíveis
+            fake_item = {
+                "key": {"remoteJid": data.get("remoteJid", "")},
+                "fromMe": data.get("fromMe", False),
+                "messageId": data.get("messageId", ""),
+                "status": data.get("status", ""),
+                # Procura texto em possíveis campos
+                "text": data.get("text", "") or data.get("message", "") or "Mensagem recebida",
+                "message": {"conversation": data.get("text", "") or data.get("message", "") or "Mensagem recebida"}
+            }
+            items = [fake_item]
+            logger.info(f"[WebhookParser] Evolution: processando messages.update para {data.get('remoteJid')}")
         elif isinstance(payload.get("data"), list) and payload.get("event") == "contacts.update":
             # NOVO: Tenta extrair dados de contacts.update quando pode conter mensagem
             logger.debug("[WebhookParser] Evolution: tentando extrair de contacts.update")
