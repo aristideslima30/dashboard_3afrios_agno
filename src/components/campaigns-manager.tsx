@@ -651,20 +651,20 @@ export function CampaignsManager() {
                         
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                           <div className="space-y-3">
-                            <Label htmlFor="objetivo" className="block text-sm font-medium">Objetivo da Campanha</Label>
+                            <Label htmlFor="objetivo" className="text-sm font-semibold text-gray-700 block h-5 leading-5">Objetivo da Campanha</Label>
                             <Input
                               id="objetivo"
                               value={formData.objetivo}
                               onChange={(e) => setFormData({...formData, objetivo: e.target.value})}
                               placeholder="Ex: Aumentar vendas de queijos"
-                              className="h-10 w-full"
+                              className="h-12 w-full border-gray-300 focus:border-green-500 text-sm px-4"
                             />
                           </div>
                           
                           <div className="space-y-3">
-                            <Label htmlFor="canal_preferido" className="block text-sm font-medium">Canal Preferido</Label>
+                            <Label htmlFor="canal_preferido" className="text-sm font-semibold text-gray-700 block h-5 leading-5">Canal Preferido</Label>
                             <Select value={formData.canal_preferido} onValueChange={(value) => setFormData({...formData, canal_preferido: value})}>
-                              <SelectTrigger className="h-10 w-full">
+                              <SelectTrigger className="h-12 w-full border-gray-300 focus:border-green-500 text-sm px-4">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
