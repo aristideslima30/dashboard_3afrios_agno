@@ -185,9 +185,14 @@ def parse_incoming_events(payload: dict) -> _t.List[dict]:
     # Skip status update events that don't need message extraction
     if isinstance(payload, dict):
         event_type = payload.get("event", "")
-        if event_type in {"chats.update", "contacts.update", "messages.update", "send.message"}:
+        # Ignora apenas eventos que NÃO contêm mensagens
+        if event_type in {"chats.update", "contacts.update", "send.message"}:
             logger.debug(f"[WebhookParser] Ignorando evento de status: {event_type}")
             return []
+        # Processa explicitamente eventos de mensagens
+        if event_type in {"messages.upsert", "messages.update"}:
+            logger.info(f"[WebhookParser] Processando evento de mensagem: {event_type}")
+            # Continua o processamento normal para eventos de mensagens
 
     events: _t.List[dict] = []
     # Evolution
