@@ -650,8 +650,8 @@ export function CampaignsManager() {
                         </div>
                         
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="objetivo" className="block h-5 leading-5">Objetivo da Campanha</Label>
+                          <div className="space-y-3">
+                            <Label htmlFor="objetivo" className="block text-sm font-medium">Objetivo da Campanha</Label>
                             <Input
                               id="objetivo"
                               value={formData.objetivo}
@@ -661,8 +661,8 @@ export function CampaignsManager() {
                             />
                           </div>
                           
-                          <div className="space-y-2">
-                            <Label htmlFor="canal_preferido" className="block h-5 leading-5">Canal Preferido</Label>
+                          <div className="space-y-3">
+                            <Label htmlFor="canal_preferido" className="block text-sm font-medium">Canal Preferido</Label>
                             <Select value={formData.canal_preferido} onValueChange={(value) => setFormData({...formData, canal_preferido: value})}>
                               <SelectTrigger className="h-10 w-full">
                                 <SelectValue />
