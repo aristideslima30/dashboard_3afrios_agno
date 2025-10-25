@@ -3,6 +3,7 @@
 import httpx
 import logging
 import json
+import asyncio
 from ..config import (
     EVOLUTION_ENABLED,
     EVOLUTION_BASE_URL,
@@ -207,20 +208,29 @@ async def send_text(telefone: str, texto: str) -> dict:
 
     async with httpx.AsyncClient(timeout=10) as client:
         attempts = []
+        max_retries = 3
+        backoff_base = 0.5
         for variant, url, headers, payload in variants:
-            try:
-                resp = await client.post(url, json=payload, headers=headers)
-                ct = resp.headers.get("content-type", "")
-                data = resp.json() if ct.startswith("application/json") else {"body": resp.text}
-                if 200 <= resp.status_code < 300:
-                    return {"sent": True, "status_code": resp.status_code, "data": data, "variant": variant, "url": url}
-                attempts.append({"variant": variant, "status_code": resp.status_code, "data": data, "url": url})
-            except Exception as e:
-                attempts.append({"variant": variant, "error": str(e), "url": url})
+            for retry in range(max_retries):
+                try:
+                    resp = await client.post(url, json=payload, headers=headers)
+                    ct = resp.headers.get("content-type", "")
+                    data = resp.json() if ct.startswith("application/json") else {"body": resp.text}
+                    if 200 <= resp.status_code < 300:
+                        return {"sent": True, "status_code": resp.status_code, "data": data, "variant": variant, "url": url}
+                    attempts.append({"variant": variant, "status_code": resp.status_code, "data": data, "url": url, "retry": retry})
+                    if resp.status_code in (429,) or resp.status_code >= 500:
+                        await asyncio.sleep(backoff_base * (2 ** retry))
+                        continue
+                    break
+                except Exception as e:
+                    attempts.append({"variant": variant, "error": str(e), "url": url, "retry": retry})
+                    await asyncio.sleep(backoff_base * (2 ** retry))
+                    continue
         reason = _classify_attempts(attempts)
         try:
             lg = logging.getLogger("3afrios.backend")
-            sample = [{"variant": a.get("variant"), "status": a.get("status_code"), "url": a.get("url")} for a in attempts[:3]]
+            sample = [{"variant": a.get("variant"), "status": a.get("status_code"), "url": a.get("url"), "retry": a.get("retry")} for a in attempts[:3]]
             lg.warning(f"Evolution send failed: reason={reason} attempts={len(attempts)} sample={json.dumps(sample, ensure_ascii=False)}")
         except Exception:
             pass
@@ -295,20 +305,29 @@ async def send_text_chat(chat_id: str, texto: str) -> dict:
 
     async with httpx.AsyncClient(timeout=10) as client:
         attempts = []
+        max_retries = 3
+        backoff_base = 0.5
         for variant, url, headers, payload in variants:
-            try:
-                resp = await client.post(url, json=payload, headers=headers)
-                ct = resp.headers.get("content-type", "")
-                data = resp.json() if ct.startswith("application/json") else {"body": resp.text}
-                if 200 <= resp.status_code < 300:
-                    return {"sent": True, "status_code": resp.status_code, "data": data, "variant": variant, "url": url}
-                attempts.append({"variant": variant, "status_code": resp.status_code, "data": data, "url": url})
-            except Exception as e:
-                attempts.append({"variant": variant, "error": str(e), "url": url})
+            for retry in range(max_retries):
+                try:
+                    resp = await client.post(url, json=payload, headers=headers)
+                    ct = resp.headers.get("content-type", "")
+                    data = resp.json() if ct.startswith("application/json") else {"body": resp.text}
+                    if 200 <= resp.status_code < 300:
+                        return {"sent": True, "status_code": resp.status_code, "data": data, "variant": variant, "url": url}
+                    attempts.append({"variant": variant, "status_code": resp.status_code, "data": data, "url": url, "retry": retry})
+                    if resp.status_code in (429,) or resp.status_code >= 500:
+                        await asyncio.sleep(backoff_base * (2 ** retry))
+                        continue
+                    break
+                except Exception as e:
+                    attempts.append({"variant": variant, "error": str(e), "url": url, "retry": retry})
+                    await asyncio.sleep(backoff_base * (2 ** retry))
+                    continue
         reason = _classify_attempts(attempts)
         try:
             lg = logging.getLogger("3afrios.backend")
-            sample = [{"variant": a.get("variant"), "status": a.get("status_code"), "url": a.get("url")} for a in attempts[:3]]
+            sample = [{"variant": a.get("variant"), "status": a.get("status_code"), "url": a.get("url"), "retry": a.get("retry")} for a in attempts[:3]]
             lg.warning(f"Evolution send_chat failed: reason={reason} attempts={len(attempts)} sample={json.dumps(sample, ensure_ascii=False)}")
         except Exception:
             pass
