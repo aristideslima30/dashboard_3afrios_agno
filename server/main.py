@@ -138,10 +138,18 @@ async def evolution_webhook(request: Request):
             payload = await request.json()
         except Exception:
             body = await request.body()
+            logger.info(f"[Evolution] Raw body recebido: {body.decode('utf-8', errors='ignore')}")
             try:
                 payload = json.loads(body.decode("utf-8", errors="ignore"))
             except Exception:
                 payload = {}
+
+        # Log do payload para debug
+        logger.info(f"[Evolution] Payload JSON: {json.dumps(payload, ensure_ascii=False)}")
+        
+        # Identifica tipo de evento para debug
+        if isinstance(payload, dict) and payload.get("event"):
+            logger.info(f"[Evolution] Tipo de evento recebido: {payload['event']}")
 
         # NEW: detectar eventos fromMe (mensagens do próprio bot) e ignorar
         def _is_from_me(p: dict) -> bool:
