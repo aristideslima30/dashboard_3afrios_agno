@@ -19,20 +19,9 @@ def _extract_evolution(payload: dict) -> _t.List[dict]:
         try:
             k = p.get("key") or {}
             msg = p.get("message") or {}
-            from_me_value = bool(
+            return bool(
                 p.get("fromMe") or k.get("fromMe") or msg.get("fromMe")
             )
-            
-            # NOVO: Log detalhado para debug
-            remote_jid = k.get("remoteJid", "")
-            logger.info(f"[WebhookParser] DEBUG fromMe check: fromMe={from_me_value}, remoteJid={remote_jid}")
-            
-            # TEMPORÁRIO: Se remoteJid é diferente do bot, forçar fromMe=False
-            if remote_jid and remote_jid != "558882165395@s.whatsapp.net":
-                logger.info(f"[WebhookParser] OVERRIDE: remoteJid {remote_jid} diferente do bot, forçando fromMe=False")
-                return False
-                
-            return from_me_value
         except Exception:
             return False
 
@@ -55,41 +44,6 @@ def _extract_evolution(payload: dict) -> _t.List[dict]:
         elif isinstance(payload.get("data"), dict) and payload.get("event") == "messages.upsert":
             logger.debug("[WebhookParser] Evolution: encontrado formato messages.upsert")
             items = [payload["data"]]
-        elif isinstance(payload.get("data"), dict) and payload.get("event") == "messages.update":
-            logger.debug("[WebhookParser] Evolution: encontrado formato messages.update")
-            # Para messages.update, o texto pode estar em lugares diferentes
-            data = payload["data"]
-            # Tenta criar item com dados disponíveis
-            fake_item = {
-                "key": {"remoteJid": data.get("remoteJid", "")},
-                "fromMe": data.get("fromMe", False),
-                "messageId": data.get("messageId", ""),
-                "status": data.get("status", ""),
-                # Procura texto em possíveis campos
-                "text": data.get("text", "") or data.get("message", "") or "Mensagem recebida",
-                "message": {"conversation": data.get("text", "") or data.get("message", "") or "Mensagem recebida"}
-            }
-            items = [fake_item]
-            logger.info(f"[WebhookParser] Evolution: processando messages.update para {data.get('remoteJid')}")
-        elif isinstance(payload.get("data"), list) and payload.get("event") == "contacts.update":
-            # NOVO: Tenta extrair dados de contacts.update quando pode conter mensagem
-            logger.debug("[WebhookParser] Evolution: tentando extrair de contacts.update")
-            data_array = payload.get("data", [])
-            sender = payload.get("sender", "")
-            for contact_data in data_array:
-                remote_jid = contact_data.get("remoteJid", "")
-                if remote_jid and remote_jid != sender:
-                    # Cria um item fake com os dados disponíveis
-                    fake_item = {
-                        "key": {"remoteJid": remote_jid},
-                        "fromMe": False,
-                        # Tenta pegar texto de algum lugar (improvável mas vamos tentar)
-                        "text": "Olá",  # Texto padrão já que contacts.update não tem texto
-                        "message": {"conversation": "Olá"}  # Fallback
-                    }
-                    items = [fake_item]
-                    logger.info(f"[WebhookParser] Evolution: criado item fake para {remote_jid}")
-                    break
         else:
             items = [payload]
 
@@ -231,35 +185,13 @@ def parse_incoming_events(payload: dict) -> _t.List[dict]:
     # Skip status update events that don't need message extraction
     if isinstance(payload, dict):
         event_type = payload.get("event", "")
-        logger.info(f"[WebhookParser] EVENTO RECEBIDO: {event_type}")
-        logger.info(f"[WebhookParser] PAYLOAD COMPLETO: {json.dumps(payload, ensure_ascii=False)}")
-        
-        # NOVA LÓGICA: Se é contacts.update mas tem remoteJid diferente do sender, pode ser mensagem!
-        if event_type == "contacts.update":
-            data_array = payload.get("data", [])
-            sender = payload.get("sender", "")
-            if data_array:
-                remote_jid = data_array[0].get("remoteJid", "")
-                # Se remoteJid é diferente do sender, pode ser uma mensagem recebida
-                if remote_jid and remote_jid != sender:
-                    logger.info(f"[WebhookParser] POSSÍVEL MENSAGEM DETECTADA em contacts.update: {remote_jid} != {sender}")
-                    # Continua processamento em vez de ignorar
-                else:
-                    logger.debug(f"[WebhookParser] Ignorando evento de status: {event_type}")
-                    return []
-            else:
-                logger.debug(f"[WebhookParser] Ignorando evento de status: {event_type}")
-                return []
-        
-        # TEMPORARIAMENTE COMENTADO PARA DEBUG
-        # Ignora apenas eventos que NÃO contêm mensagens
-        # if event_type in {"chats.update", "contacts.update", "send.message"}:
-        #     logger.debug(f"[WebhookParser] Ignorando evento de status: {event_type}")
-        #     return []
         # Processa explicitamente eventos de mensagens
         if event_type in {"messages.upsert", "messages.update"}:
             logger.info(f"[WebhookParser] Processando evento de mensagem: {event_type}")
-            # Continua o processamento normal para eventos de mensagens
+        # Ignora eventos que NÃO contêm mensagens
+        elif event_type in {"chats.update", "contacts.update", "send.message"}:
+            logger.debug(f"[WebhookParser] Ignorando evento de status: {event_type}")
+            return []
 
     events: _t.List[dict] = []
     # Evolution

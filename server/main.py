@@ -138,39 +138,20 @@ async def evolution_webhook(request: Request):
             payload = await request.json()
         except Exception:
             body = await request.body()
-            logger.info(f"[Evolution] Raw body recebido: {body.decode('utf-8', errors='ignore')}")
             try:
                 payload = json.loads(body.decode("utf-8", errors="ignore"))
             except Exception:
                 payload = {}
 
-        # Log do payload para debug
-        logger.info(f"[Evolution] Payload JSON: {json.dumps(payload, ensure_ascii=False)}")
-        
-        # Identifica tipo de evento para debug
-        if isinstance(payload, dict) and payload.get("event"):
-            logger.info(f"[Evolution] Tipo de evento recebido: {payload['event']}")
-
         # NEW: detectar eventos fromMe (mensagens do próprio bot) e ignorar
         def _is_from_me(p: dict) -> bool:
             try:
                 k = p.get("key") or {}
-                from_me_value = bool(
+                return bool(
                     p.get("fromMe") or
                     k.get("fromMe") or
                     (p.get("message") or {}).get("fromMe")
                 )
-                
-                # NOVO: Log detalhado para debug
-                remote_jid = k.get("remoteJid", "")
-                logger.info(f"[Evolution] DEBUG fromMe check: fromMe={from_me_value}, remoteJid={remote_jid}")
-                
-                # TEMPORÁRIO: Se remoteJid é diferente do bot, forçar fromMe=False
-                if remote_jid and remote_jid != "558882165395@s.whatsapp.net":
-                    logger.info(f"[Evolution] OVERRIDE: remoteJid {remote_jid} diferente do bot, forçando fromMe=False")
-                    return False
-                    
-                return from_me_value
             except Exception:
                 return False
 
