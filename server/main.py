@@ -155,11 +155,22 @@ async def evolution_webhook(request: Request):
         def _is_from_me(p: dict) -> bool:
             try:
                 k = p.get("key") or {}
-                return bool(
+                from_me_value = bool(
                     p.get("fromMe") or
                     k.get("fromMe") or
                     (p.get("message") or {}).get("fromMe")
                 )
+                
+                # NOVO: Log detalhado para debug
+                remote_jid = k.get("remoteJid", "")
+                logger.info(f"[Evolution] DEBUG fromMe check: fromMe={from_me_value}, remoteJid={remote_jid}")
+                
+                # TEMPORÁRIO: Se remoteJid é diferente do bot, forçar fromMe=False
+                if remote_jid and remote_jid != "558882165395@s.whatsapp.net":
+                    logger.info(f"[Evolution] OVERRIDE: remoteJid {remote_jid} diferente do bot, forçando fromMe=False")
+                    return False
+                    
+                return from_me_value
             except Exception:
                 return False
 

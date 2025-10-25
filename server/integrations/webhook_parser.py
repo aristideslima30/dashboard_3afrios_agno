@@ -19,9 +19,20 @@ def _extract_evolution(payload: dict) -> _t.List[dict]:
         try:
             k = p.get("key") or {}
             msg = p.get("message") or {}
-            return bool(
+            from_me_value = bool(
                 p.get("fromMe") or k.get("fromMe") or msg.get("fromMe")
             )
+            
+            # NOVO: Log detalhado para debug
+            remote_jid = k.get("remoteJid", "")
+            logger.info(f"[WebhookParser] DEBUG fromMe check: fromMe={from_me_value}, remoteJid={remote_jid}")
+            
+            # TEMPORÁRIO: Se remoteJid é diferente do bot, forçar fromMe=False
+            if remote_jid and remote_jid != "558882165395@s.whatsapp.net":
+                logger.info(f"[WebhookParser] OVERRIDE: remoteJid {remote_jid} diferente do bot, forçando fromMe=False")
+                return False
+                
+            return from_me_value
         except Exception:
             return False
 
