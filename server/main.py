@@ -398,6 +398,13 @@ async def whatsapp_webhook(req: Request):
             telefone = (ev.get("telefone") or "").strip()
             texto = (ev.get("texto") or "").strip()
             event_id = (ev.get("event_id") or f"evt-{int(time.time()*1000)}")
+            chat_id = (ev.get("chat_id") or "").strip()
+
+            # Ignora grupos e canais
+            if chat_id.endswith("@g.us") or chat_id.endswith("@broadcast") or chat_id.endswith("@newsletter"):
+                logger.info(f"[WhatsApp] inbound ignorado: group_or_broadcast chat_id={chat_id} event_id={event_id}")
+                ignored.append({"ignored": "group_or_broadcast", "event_id": event_id, "chat_id": chat_id})
+                continue
 
             if from_me:
                 logger.info(f"[WhatsApp] inbound ignorado: from_me telefone={telefone} event_id={event_id}")

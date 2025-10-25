@@ -49,7 +49,7 @@ def _extract_evolution(payload: dict) -> _t.List[dict]:
 
     for p in items:
         if is_from_me(p):
-            events.append({"from_me": True, "telefone": "", "texto": "", "event_id": get_event_id(p)})
+            events.append({"from_me": True, "telefone": "", "texto": "", "event_id": get_event_id(p), "chat_id": str(((p.get("key") or {}).get("remoteJid") or p.get("chatId") or p.get("sender") or ""))})
             continue
         # telefone
         base = p.get("number") or p.get("from") or p.get("telefone") or p.get("phone") or ""
@@ -62,6 +62,9 @@ def _extract_evolution(payload: dict) -> _t.List[dict]:
         telefone = _digits(base)
         # texto (apenas strings válidas; evita usar dict diretamente)
         texto = ""
+        # chat_id e participant para controle de grupos
+        chat_id = str(((p.get("key") or {}).get("remoteJid") or p.get("chatId") or p.get("sender") or ""))
+        participant = str(p.get("participant") or ((p.get("key") or {}).get("participant") or ""))
         for cand in [
             p.get("text"),
             p.get("body"),
@@ -100,7 +103,7 @@ def _extract_evolution(payload: dict) -> _t.List[dict]:
                         texto = cand.strip()
                         break
 
-        events.append({"from_me": False, "telefone": telefone, "texto": texto, "event_id": get_event_id(p)})
+        events.append({"from_me": False, "telefone": telefone, "texto": texto, "event_id": get_event_id(p), "chat_id": chat_id, "participant": participant})
     return events
 
 
