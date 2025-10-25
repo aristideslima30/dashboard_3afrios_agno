@@ -89,16 +89,15 @@ async def configure_webhook():
         "apikey": EVOLUTION_API_KEY
     }
     
-    # Configuração do webhook com todos os eventos de mensagem
+    # Configuração do webhook com APENAS eventos de mensagem
     webhook_config = {
         "url": WEBHOOK_URL,
         "enabled": True,
         "events": [
-            "MESSAGES_UPSERT",
-            "MESSAGES_UPDATE", 
-            "MESSAGES_DELETE",
-            "SEND_MESSAGE"
-        ]
+            "MESSAGES_UPSERT"
+        ],
+        "webhookByEvents": False,
+        "webhookBase64": False
     }
     
     try:
@@ -116,6 +115,42 @@ async def configure_webhook():
     except Exception as e:
         print(f"❌ Erro ao configurar webhook: {e}")
 
+async def set_instance_webhook():
+    """Configura webhook diretamente na instância"""
+    if not all([EVOLUTION_BASE_URL, EVOLUTION_API_KEY, EVOLUTION_INSTANCE_ID]):
+        return
+    
+    url = f"{EVOLUTION_BASE_URL.rstrip('/')}/instance/setSettings/{EVOLUTION_INSTANCE_ID}"
+    headers = {
+        "Content-Type": "application/json",
+        "apikey": EVOLUTION_API_KEY
+    }
+    
+    # Configuração direta da instância
+    instance_config = {
+        "webhook": {
+            "url": WEBHOOK_URL,
+            "enabled": True,
+            "events": ["MESSAGES_UPSERT"],
+            "webhookByEvents": False
+        }
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.put(url, headers=headers, json=instance_config)
+            print(f"🔧 Status da configuração da instância: {response.status_code}")
+            
+            if response.status_code in [200, 201]:
+                print("✅ Instância configurada com sucesso!")
+                print("📝 Configuração aplicada:")
+                print(json.dumps(instance_config, indent=2, ensure_ascii=False))
+            else:
+                print(f"❌ Erro ao configurar instância: {response.text}")
+                
+    except Exception as e:
+        print(f"❌ Erro ao configurar instância: {e}")
+
 async def main():
     print("🔍 Verificando configuração da Evolution API...\n")
     
@@ -128,11 +163,15 @@ async def main():
     await get_webhook_config()
     
     print("=" * 50)
-    print("3️⃣ Configurando webhook para receber mensagens:")
+    print("3️⃣ Configurando webhook para receber APENAS mensagens:")
     await configure_webhook()
     
     print("=" * 50)
-    print("4️⃣ Verificando configuração após mudanças:")
+    print("4️⃣ Configurando webhook diretamente na instância:")
+    await set_instance_webhook()
+    
+    print("=" * 50)
+    print("5️⃣ Verificando configuração após mudanças:")
     await get_webhook_config()
 
 if __name__ == "__main__":
