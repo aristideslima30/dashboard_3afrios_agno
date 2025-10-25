@@ -587,21 +587,21 @@ export function CampaignsManager() {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-3">
-                          <Label htmlFor="nome" className="text-sm font-semibold text-gray-700">Nome da Campanha *</Label>
+                          <Label htmlFor="nome" className="text-sm font-semibold text-gray-700 block">Nome da Campanha *</Label>
                           <Input
                             id="nome"
                             value={formData.nome}
                             onChange={(e) => setFormData({...formData, nome: e.target.value})}
                             placeholder="Ex: Promoção Queijos Premium"
                             required
-                            className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm px-4"
                           />
                         </div>
                         
                         <div className="space-y-3">
-                          <Label htmlFor="tipo_campanha" className="text-sm font-semibold text-gray-700">Tipo de Campanha</Label>
+                          <Label htmlFor="tipo_campanha" className="text-sm font-semibold text-gray-700 block">Tipo de Campanha</Label>
                           <Select value={formData.tipo_campanha} onValueChange={(value) => setFormData({...formData, tipo_campanha: value})}>
-                            <SelectTrigger className="h-11 border-gray-300 focus:border-blue-500">
+                            <SelectTrigger className="h-12 border-gray-300 focus:border-blue-500 text-sm px-4">
                               <SelectValue placeholder="Selecione o tipo" />
                             </SelectTrigger>
                             <SelectContent>
@@ -616,14 +616,14 @@ export function CampaignsManager() {
                         </div>
                         
                         <div className="space-y-3 md:col-span-2">
-                          <Label htmlFor="produtos" className="text-sm font-semibold text-gray-700">Produtos (separados por vírgula) *</Label>
+                          <Label htmlFor="produtos" className="text-sm font-semibold text-gray-700 block">Produtos (separados por vírgula) *</Label>
                           <Input
                             id="produtos"
                             value={formData.produtos}
                             onChange={(e) => setFormData({...formData, produtos: e.target.value})}
                             placeholder="Ex: queijo, presunto, salame"
                             required
-                            className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                            className="h-12 border-gray-300 focus:border-blue-500 focus:ring-blue-500 text-sm px-4"
                           />
                         </div>
                       </div>
